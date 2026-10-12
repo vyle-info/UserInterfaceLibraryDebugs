@@ -1551,30 +1551,12 @@ local function ApplyElementTransparency(Value)
     end
 end
 
--- Popped-out menus (dropdown lists, keybind mode menu...) fix themselves based on the groupbox
--- transparency: the more see-through the groupbox gets, the darker and more opaque the popup becomes,
--- so text from the content behind it never bleeds through the list.
-Library.PopupMaxTransparency = 0.25 -- highest transparency a popup ever reaches (around groupbox ~0.2)
-Library.PopupMaxDarken = 0.6        -- how far toward black the popup color goes when the groupbox is fully transparent
+-- Popped-out menus (dropdown lists, keybind mode menu...) are darker and never more transparent than this
+Library.PopupMaxTransparency = 0.25
 Library.PopupFrames = setmetatable({}, { __mode = "k" })
 
 function Library:PopupTransparency()
-    local G = Library.GroupboxTransparency
-    -- follows the groupbox at low values, then rises back toward opaque as the groupbox fades out
-    return math.clamp(math.min(G, Library.PopupMaxTransparency * (1 - G)), 0, 1)
-end
-
-function Library:PopupColor()
-    local Target = Library.IsLightTheme and Color3.new(1, 1, 1) or Color3.new(0, 0, 0)
-    local Amount = 0.1 + Library.PopupMaxDarken * math.clamp(Library.GroupboxTransparency, 0, 1)
-    return Library.Scheme.BackgroundColor:Lerp(Target, math.clamp(Amount, 0, 1))
-end
-
-function Library:RefreshPopups()
-    for Popup in Library.PopupFrames do
-        Popup.BackgroundTransparency = Library:PopupTransparency()
-        Popup.BackgroundColor3 = Library:PopupColor()
-    end
+    return math.min(Library.GroupboxTransparency, Library.PopupMaxTransparency)
 end
 
 function Library:SetGroupboxTransparency(Value)
@@ -1582,7 +1564,9 @@ function Library:SetGroupboxTransparency(Value)
     Library.GroupboxTransparency = Value
     ApplyPanelTransparency("Groupbox", Value)
 
-    Library:RefreshPopups()
+    for Popup in Library.PopupFrames do
+        Popup.BackgroundTransparency = Library:PopupTransparency()
+    end
 end
 
 -- Backwards compatible: sets both at once
@@ -3803,11 +3787,13 @@ function Library:AddContextMenu(
     end
     Library.PopupFrames[Menu] = true
     Menu.BackgroundTransparency = Library:PopupTransparency()
-    Menu.BackgroundColor3 = Library:PopupColor()
-    if Library.Registry[Menu] then
-        -- function value: re-evaluated on theme changes, always uses the current groupbox transparency
-        Library.Registry[Menu].BackgroundColor3 = function()
-            return Library:PopupColor()
+    do -- slightly darker than the normal background so open menus stand out from what is behind them
+        local function PopupColor()
+            return Library:GetBetterColor(Library.Scheme.BackgroundColor, -3)
+        end
+        Menu.BackgroundColor3 = PopupColor()
+        if Library.Registry[Menu] then
+            Library.Registry[Menu].BackgroundColor3 = PopupColor
         end
     end
     table.insert(
