@@ -1504,10 +1504,7 @@ end
 function Library:SetBackgroundTransparency(Value)
     Library.BackgroundTransparency = Value
     ApplyPanelTransparency("Background", Value)
-
-    for Popup in Library.PopupFrames do
-        Popup.BackgroundTransparency = Library:PopupTransparency()
-    end
+    Library:UpdatePopupTransparency()
 end
 
 --// Elements (buttons, inputs, dropdowns, sliders, toggles, tab buttons, search bar...) \--
@@ -1555,23 +1552,23 @@ local function ApplyElementTransparency(Value)
     end
 end
 
--- Popped-out menus (dropdown lists, keybind mode menu...) are darker and never more transparent than this
-Library.PopupMaxTransparency = 0.25
+-- Popped-out menus (dropdown lists, keybind mode menu...) follow the BACKGROUND transparency
 Library.PopupFrames = setmetatable({}, { __mode = "k" })
 
 function Library:PopupTransparency()
-    return math.min(Library.BackgroundTransparency, Library.PopupMaxTransparency)
+    return Library.BackgroundTransparency
+end
+
+function Library:UpdatePopupTransparency()
+    for Popup in Library.PopupFrames do
+        Popup.BackgroundTransparency = Library:PopupTransparency()
+    end
 end
 
 function Library:SetGroupboxTransparency(Value)
     ApplyElementTransparency(Value) -- must run before the stored value changes
     Library.GroupboxTransparency = Value
     ApplyPanelTransparency("Groupbox", Value)
-end
-
-    for Popup in Library.PopupFrames do
-        Popup.BackgroundTransparency = Library:PopupTransparency()
-    end
 end
 
 -- Backwards compatible: sets both at once
