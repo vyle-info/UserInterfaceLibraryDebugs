@@ -1469,30 +1469,53 @@ function Library:UpdateColorsUsingRegistry()
     end
 end
 
-Library.PanelFrames = {}
-Library.PanelTransparency = 0
+Library.PanelFrames = {
+    Background = {},
+    Groupbox = {},
+}
+Library.BackgroundTransparency = 0
+Library.GroupboxTransparency = 0
 
-function Library:RegisterPanel(Panel)
-    table.insert(Library.PanelFrames, Panel)
-    Panel.BackgroundTransparency = Library.PanelTransparency
+-- Kind: "Background" (main window / tabs / container) or "Groupbox" (groupboxes & tabboxes)
+function Library:RegisterPanel(Panel, Kind)
+    Kind = Kind or "Background"
+
+    table.insert(Library.PanelFrames[Kind], Panel)
+    Panel.BackgroundTransparency = Library[Kind .. "Transparency"]
     return Panel
 end
 
-function Library:SetPanelTransparency(Value)
-    Library.PanelTransparency = Value
+local function ApplyPanelTransparency(Kind, Value)
+    local Frames = Library.PanelFrames[Kind]
 
-    for i = #Library.PanelFrames, 1, -1 do
-        local Panel = Library.PanelFrames[i]
+    for i = #Frames, 1, -1 do
+        local Panel = Frames[i]
         if Panel.Parent then
             Panel.BackgroundTransparency = Value
         else
-            table.remove(Library.PanelFrames, i)
+            table.remove(Frames, i)
         end
     end
+end
+
+function Library:SetBackgroundTransparency(Value)
+    Library.BackgroundTransparency = Value
+    ApplyPanelTransparency("Background", Value)
 
     if Library.Window then
         Library.Window.MainFrame.BackgroundTransparency = Value
     end
+end
+
+function Library:SetGroupboxTransparency(Value)
+    Library.GroupboxTransparency = Value
+    ApplyPanelTransparency("Groupbox", Value)
+end
+
+-- Backwards compatible: sets both at once
+function Library:SetPanelTransparency(Value)
+    Library:SetBackgroundTransparency(Value)
+    Library:SetGroupboxTransparency(Value)
 end
 
 function Library:SetDPIScale(DPIScale: number)
@@ -11352,6 +11375,7 @@ function Library:CreateWindow(WindowInfo)
             end,
             Name = "Main",
             Text = "",
+            BackgroundTransparency = Library.BackgroundTransparency,
             Position = WindowInfo.Position,
             Size = WindowInfo.Size,
             Visible = false,
@@ -12510,7 +12534,7 @@ function Library:CreateWindow(WindowInfo)
                     })
                 )
                 Library:AddOutline(TabboxHolder)
-                Library:RegisterPanel(TabboxHolder)
+                Library:RegisterPanel(TabboxHolder, "Groupbox")
 
                 TabboxButtons = New("Frame", {
                     BackgroundTransparency = 1,
@@ -12912,7 +12936,7 @@ function Library:CreateWindow(WindowInfo)
                     Parent = GroupboxHolder,
                 })
                 Library:AddOutline(GroupboxHolder)
-                Library:RegisterPanel(GroupboxHolder)
+                Library:RegisterPanel(GroupboxHolder, "Groupbox")
 
                 GroupboxTop = New("Frame", {
                     AutomaticSize = Enum.AutomaticSize.Y,
