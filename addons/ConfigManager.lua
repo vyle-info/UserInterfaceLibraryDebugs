@@ -1174,6 +1174,9 @@ function SaveManager:BuildConfigSection(Tab: any, IconName: string)
     RefreshAutoloadConfigLabel()
     SaveManager:SetIgnoreIndexes({ "SaveManager_ConfigList", "SaveManager_ConfigName", "SaveManager_JSON" })
 
+ConfigurationBox:AddButton("Unload", function()
+	Library:Unload()
+end)
     --// Reset
     ConfigurationBox:AddButton({
         Text = "Delete all settings",
@@ -1208,10 +1211,6 @@ function SaveManager:BuildConfigSection(Tab: any, IconName: string)
 
     return ConfigurationBox
 end
-
-ConfigurationBox:AddButton("Unload", function()
-	Library:Unload()
-end)
                                                     
 SaveManager:BuildFolderTree()
 return SaveManager
