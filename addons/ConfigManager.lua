@@ -1205,9 +1205,11 @@ function SaveManager:BuildConfigSection(Tab: any, IconName: string)
             )
         end
     })
+
 ConfigurationBox:AddButton("Unload Interface", function()
     SaveManager.Library:Unload()
 end)
+
     return ConfigurationBox
 end
                                                     
