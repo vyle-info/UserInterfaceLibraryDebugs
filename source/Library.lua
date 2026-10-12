@@ -1554,19 +1554,16 @@ end
 -- Popped-out menus (dropdown lists, keybind mode menu...) are darker and never more transparent than this
 Library.PopupFrames = setmetatable({}, { __mode = "k" })
 
-function Library:PopupTransparency()
-    return Library.GroupboxTransparency
-end
-
 function Library:SetGroupboxTransparency(Value)
     ApplyElementTransparency(Value) -- must run before the stored value changes
     Library.GroupboxTransparency = Value
     ApplyPanelTransparency("Groupbox", Value)
 
     for Popup in Library.PopupFrames do
-        Popup.BackgroundTransparency = Library:PopupTransparency()
+        if Popup.Parent then
+            Popup.BackgroundTransparency = Library.GroupboxTransparency
+        end
     end
-end
 
 -- Backwards compatible: sets both at once
 function Library:SetPanelTransparency(Value)
@@ -3785,7 +3782,16 @@ function Library:AddContextMenu(
         })
     end
     Library.PopupFrames[Menu] = true
-    Menu.BackgroundTransparency = Library:PopupTransparency()
+    Menu.BackgroundTransparency = Library.GroupboxTransparency
+    do -- slightly darker than the normal background so open menus stand out from what is behind them
+        local function PopupColor()
+            return Library:GetBetterColor(Library.Scheme.BackgroundColor, -1)
+        end
+        Menu.BackgroundColor3 = PopupColor()
+        if Library.Registry[Menu] then
+            Library.Registry[Menu].BackgroundColor3 = PopupColor
+        end
+    end
     table.insert(
         Library.Scales,
         New("UIScale", {
