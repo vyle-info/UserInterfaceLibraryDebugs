@@ -1551,10 +1551,22 @@ local function ApplyElementTransparency(Value)
     end
 end
 
+-- Popped-out menus (dropdown lists, keybind mode menu...) are darker and never more transparent than this
+Library.PopupMaxTransparency = 0.25
+Library.PopupFrames = setmetatable({}, { __mode = "k" })
+
+function Library:PopupTransparency()
+    return math.min(Library.GroupboxTransparency, Library.PopupMaxTransparency)
+end
+
 function Library:SetGroupboxTransparency(Value)
     ApplyElementTransparency(Value) -- must run before the stored value changes
     Library.GroupboxTransparency = Value
     ApplyPanelTransparency("Groupbox", Value)
+
+    for Popup in Library.PopupFrames do
+        Popup.BackgroundTransparency = Library:PopupTransparency()
+    end
 end
 
 -- Backwards compatible: sets both at once
@@ -3773,7 +3785,17 @@ function Library:AddContextMenu(
             Parent = ParentGui,
         })
     end
-    Library:RegisterElement(Menu)
+    Library.PopupFrames[Menu] = true
+    Menu.BackgroundTransparency = Library:PopupTransparency()
+    do -- slightly darker than the normal background so open menus stand out from what is behind them
+        local function PopupColor()
+            return Library:GetBetterColor(Library.Scheme.BackgroundColor, -3)
+        end
+        Menu.BackgroundColor3 = PopupColor()
+        if Library.Registry[Menu] then
+            Library.Registry[Menu].BackgroundColor3 = PopupColor
+        end
+    end
     table.insert(
         Library.Scales,
         New("UIScale", {
@@ -11489,9 +11511,10 @@ function Library:CreateWindow(WindowInfo)
             Position = UDim2.new(0, 0, 1, -20),
             Size = UDim2.new(1, 0, 0, 1),
         })
+        -- starts at y = 49 so it never overlaps TopBarBackground (two stacked layers = darker line)
         DividerBacking = AddLineBacking({
-            Position = UDim2.fromOffset(InitialLeftWidth, 0),
-            Size = UDim2.new(0, 1, 1, -21),
+            Position = UDim2.fromOffset(InitialLeftWidth, 49),
+            Size = UDim2.new(0, 1, 1, -70),
         })
 
         local BackgroundIcon = Library:GetCustomIcon(WindowInfo.BackgroundImage)
@@ -11563,13 +11586,15 @@ function Library:CreateWindow(WindowInfo)
             Parent = TopBar,
         })
         TopBarCorner = New("UICorner", {
-            CornerRadius = UDim.new(0, 0),
-            TopLeftRadius = UDim.new(0, WindowInfo.CornerRadius),
-            TopRightRadius = UDim.new(0, WindowInfo.CornerRadius),
-            BottomLeftRadius = UDim.new(0, 0),
-            BottomRightRadius = UDim.new(0, 0),
             Parent = TopBarBackground,
         })
+        -- set per-corner radii AFTER creation: assigning CornerRadius resets all four corners,
+        -- and table iteration order inside New() is not guaranteed
+        TopBarCorner.CornerRadius = UDim.new(0, 0)
+        TopBarCorner.TopLeftRadius = UDim.new(0, WindowInfo.CornerRadius)
+        TopBarCorner.TopRightRadius = UDim.new(0, WindowInfo.CornerRadius)
+        TopBarCorner.BottomLeftRadius = UDim.new(0, 0)
+        TopBarCorner.BottomRightRadius = UDim.new(0, 0)
         Library:RegisterPanel(TopBarBackground)
         Library:MakeDraggable(MainFrame, TopBar, false, true, WindowSnapConfig)
 
@@ -12174,7 +12199,7 @@ function Library:CreateWindow(WindowInfo)
 
         DividerLine.Position = UDim2.fromOffset(Width, 0)
         if DividerBacking then
-            DividerBacking.Position = UDim2.fromOffset(Width, 0)
+            DividerBacking.Position = UDim2.fromOffset(Width, 49)
         end
 
         TitleHolder.Size = UDim2.new(0, Width, 1, 0)
