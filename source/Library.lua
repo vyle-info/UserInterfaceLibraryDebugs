@@ -1504,6 +1504,10 @@ end
 function Library:SetBackgroundTransparency(Value)
     Library.BackgroundTransparency = Value
     ApplyPanelTransparency("Background", Value)
+
+    for Popup in Library.PopupFrames do
+        Popup.BackgroundTransparency = Library:PopupTransparency()
+    end
 end
 
 --// Elements (buttons, inputs, dropdowns, sliders, toggles, tab buttons, search bar...) \--
@@ -1556,13 +1560,14 @@ Library.PopupMaxTransparency = 0.25
 Library.PopupFrames = setmetatable({}, { __mode = "k" })
 
 function Library:PopupTransparency()
-    return math.min(Library.GroupboxTransparency, Library.PopupMaxTransparency)
+    return math.min(Library.BackgroundTransparency, Library.PopupMaxTransparency)
 end
 
 function Library:SetGroupboxTransparency(Value)
     ApplyElementTransparency(Value) -- must run before the stored value changes
     Library.GroupboxTransparency = Value
     ApplyPanelTransparency("Groupbox", Value)
+end
 
     for Popup in Library.PopupFrames do
         Popup.BackgroundTransparency = Library:PopupTransparency()
