@@ -1209,5 +1209,9 @@ function SaveManager:BuildConfigSection(Tab: any, IconName: string)
     return ConfigurationBox
 end
 
+UIManagementGroup:AddButton("Unload", function()
+	Library:Unload()
+end)
+                                                    
 SaveManager:BuildFolderTree()
 return SaveManager
