@@ -8709,6 +8709,13 @@ do
         )
         Dropdown.Menu = MenuTable
 
+        local DropdownOutline = Library:AddOutline(MenuTable.Menu)
+        if DropdownOutline then
+            Library:AddToRegistry(DropdownOutline, {
+                Color = "OutlineColor",
+            })
+        end
+
         local ItemHeight = 21
         local PoolSize = math.max(1, Info.MaxVisibleDropdownItems + 2)
         local Pool = {}
