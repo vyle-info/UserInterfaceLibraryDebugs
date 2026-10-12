@@ -1552,7 +1552,7 @@ local function ApplyElementTransparency(Value)
 end
 
 -- Popped-out menus (dropdown lists, keybind mode menu...) are darker and never more transparent than this
-Library.PopupMaxTransparency = 0.25
+Library.PopupMaxTransparency = 0.1
 Library.PopupFrames = setmetatable({}, { __mode = "k" })
 
 function Library:PopupTransparency()
