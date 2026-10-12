@@ -1175,7 +1175,7 @@ function SaveManager:BuildConfigSection(Tab: any, IconName: string)
     SaveManager:SetIgnoreIndexes({ "SaveManager_ConfigList", "SaveManager_ConfigName", "SaveManager_JSON" })
 
 ConfigurationBox:AddButton("Unload", function()
-	Library:Unload()
+    SaveManager.Library:Unload()
 end)
     --// Reset
     ConfigurationBox:AddButton({
