@@ -1557,7 +1557,7 @@ Library.PopupFrames = setmetatable({}, { __mode = "k" })
 
 function Library:PopupTransparency()
     return math.max(
-        math.min(Library.GroupboxTransparency, Library.PopupMaxTransparency) - 0.8,
+        math.min(Library.GroupboxTransparency, Library.PopupMaxTransparency) - 0.08,
         0
     )
 end
