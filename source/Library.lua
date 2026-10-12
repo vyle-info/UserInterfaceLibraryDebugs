@@ -1552,11 +1552,12 @@ local function ApplyElementTransparency(Value)
 end
 
 -- Popped-out menus (dropdown lists, keybind mode menu...) are darker and never more transparent than this
+Library.PopupMaxTransparency = 0.25
 Library.PopupFrames = setmetatable({}, { __mode = "k" })
 
 function Library:PopupTransparency()
     return math.max(
-        math.min(Library.GroupboxTransparency, Library.PopupMaxTransparency) - 0.10,
+        math.min(Library.GroupboxTransparency, Library.PopupMaxTransparency) - 0.15,
         0
     )
 end
@@ -3789,7 +3790,7 @@ function Library:AddContextMenu(
     end
     Library.PopupFrames[Menu] = true
     Menu.BackgroundTransparency = Library:PopupTransparency()
-    Menu.BackgroundColor3 = Library:GetBetterColor(Library.Scheme.BackgroundColor, -4)
+Menu.BackgroundColor3 = Library.Scheme.BackgroundColor
 
 if Library.Registry[Menu] then
     Library.Registry[Menu].BackgroundColor3 = "BackgroundColor"
@@ -8711,13 +8712,6 @@ do
             "Dropdown"
         )
         Dropdown.Menu = MenuTable
-
-        local DropdownOutline = Library:AddOutline(MenuTable.Menu)
-        if DropdownOutline then
-            Library:AddToRegistry(DropdownOutline, {
-                Color = "OutlineColor",
-            })
-        end
 
         local ItemHeight = 21
         local PoolSize = math.max(1, Info.MaxVisibleDropdownItems + 2)
