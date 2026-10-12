@@ -11152,6 +11152,7 @@ function Library:CreateWindow(WindowInfo)
     local IsDefaultSearchbarSize = WindowInfo.SearchbarSize == UDim2.fromScale(1, 1)
     local MainFrame
     local DividerLine
+    local DividerBacking
     local TitleHolder
     local WindowTitle
     local WindowIcon
@@ -11469,6 +11470,28 @@ function Library:CreateWindow(WindowInfo)
             Size = UDim2.new(0, 1, 1, -21),
             Parent = MainFrame,
             ZIndex = 2
+        })
+
+        -- The 1px separator lines sit in gaps between panels. MainFrame is transparent, so those
+        -- gaps would show the game through them. Give every line a backing that uses the same
+        -- background color/transparency as the rest of the window.
+        local function AddLineBacking(Info)
+            Info.BackgroundColor3 = function()
+                return Library:GetBetterColor(Library.Scheme.BackgroundColor, -1)
+            end
+            Info.ZIndex = 0
+            Info.Parent = MainFrame
+            return Library:RegisterPanel(New("Frame", Info))
+        end
+        AddLineBacking({ Position = UDim2.fromOffset(0, 48), Size = UDim2.new(1, 0, 0, 1) })
+        AddLineBacking({
+            AnchorPoint = Vector2.new(0, 1),
+            Position = UDim2.new(0, 0, 1, -20),
+            Size = UDim2.new(1, 0, 0, 1),
+        })
+        DividerBacking = AddLineBacking({
+            Position = UDim2.fromOffset(InitialLeftWidth, 0),
+            Size = UDim2.new(0, 1, 1, -21),
         })
 
         local BackgroundIcon = Library:GetCustomIcon(WindowInfo.BackgroundImage)
@@ -12150,6 +12173,9 @@ function Library:CreateWindow(WindowInfo)
         Width = math.clamp(Width, 48, MainFrame.Size.X.Offset - WindowInfo.MinContainerWidth - 1)
 
         DividerLine.Position = UDim2.fromOffset(Width, 0)
+        if DividerBacking then
+            DividerBacking.Position = UDim2.fromOffset(Width, 0)
+        end
 
         TitleHolder.Size = UDim2.new(0, Width, 1, 0)
         RightWrapper.Size = UDim2.new(1, -Width - 57 - 1, 1, -16)
