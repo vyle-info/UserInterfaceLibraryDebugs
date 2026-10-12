@@ -1565,10 +1565,9 @@ function Library:SetGroupboxTransparency(Value)
     ApplyPanelTransparency("Groupbox", Value)
 
     for Popup in Library.PopupFrames do
-        if Popup.Parent then
-            Popup.BackgroundTransparency = Library.GroupboxTransparency
-        end
+        Popup.BackgroundTransparency = Library:PopupTransparency()
     end
+end
 
 -- Backwards compatible: sets both at once
 function Library:SetPanelTransparency(Value)
@@ -3787,7 +3786,7 @@ function Library:AddContextMenu(
         })
     end
     Library.PopupFrames[Menu] = true
-    Menu.BackgroundTransparency = Library.GroupboxTransparency
+    Menu.BackgroundTransparency = Library:PopupTransparency()
     do -- slightly darker than the normal background so open menus stand out from what is behind them
         local function PopupColor()
             return Library:GetBetterColor(Library.Scheme.BackgroundColor, -3)
