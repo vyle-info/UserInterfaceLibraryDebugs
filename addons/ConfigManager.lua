@@ -1189,7 +1189,7 @@ function SaveManager:BuildConfigSection(Tab: any, IconName: string)
                 "SaveManager_ResetAll",
                 "Delete all settings",
                 string.format(
-                    "This will delete every saved config, theme & setting, You cannot revert this decision. (This will also require you to rejoin the server / game)",
+                    "This will delete every saved config, theme & setting | You cannot revert this decision. (It will also require you to rejoin the server)",
                     tostring(SaveManager.Folder)
                 ),
 
