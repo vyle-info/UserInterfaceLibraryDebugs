@@ -1174,6 +1174,11 @@ function SaveManager:BuildConfigSection(Tab: any, IconName: string)
     RefreshAutoloadConfigLabel()
     SaveManager:SetIgnoreIndexes({ "SaveManager_ConfigList", "SaveManager_ConfigName", "SaveManager_JSON" })
 
+    --// Unload
+    ConfigurationBox:AddButton("Unload Interface", function()
+        SaveManager.Library:Unload()
+    end)
+
     --// Reset
     ConfigurationBox:AddButton({
         Text = "Delete all settings",
@@ -1189,7 +1194,7 @@ function SaveManager:BuildConfigSection(Tab: any, IconName: string)
                 "SaveManager_ResetAll",
                 "Delete all settings",
                 string.format(
-                    "The %q folder & every config, theme, saved setting will be deleted, You cannot revert this decision.",
+                    "This will delete every saved config, theme & setting, You cannot revert this decision. (This will also require you to rejoin the server / game)",
                     tostring(SaveManager.Folder)
                 ),
 
@@ -1205,10 +1210,6 @@ function SaveManager:BuildConfigSection(Tab: any, IconName: string)
             )
         end
     })
-
-ConfigurationBox:AddButton("Unload Interface", function()
-    SaveManager.Library:Unload()
-end)
 
     return ConfigurationBox
 end
