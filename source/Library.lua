@@ -1555,7 +1555,10 @@ end
 Library.PopupFrames = setmetatable({}, { __mode = "k" })
 
 function Library:PopupTransparency()
-    return Library.GroupboxTransparency
+    return math.max(
+        math.min(Library.GroupboxTransparency, Library.PopupMaxTransparency) - 0.05,
+        0
+    )
 end
 
 function Library:SetGroupboxTransparency(Value)
@@ -3785,7 +3788,7 @@ function Library:AddContextMenu(
         })
     end
     Library.PopupFrames[Menu] = true
-    Menu.BackgroundTransparency = math.max(Library:PopupTransparency() - 0.20, 0)
+    Menu.BackgroundTransparency = Library:PopupTransparency()
     Menu.BackgroundColor3 = Library:GetBetterColor(Library.Scheme.BackgroundColor, -4)
 
 if Library.Registry[Menu] then
