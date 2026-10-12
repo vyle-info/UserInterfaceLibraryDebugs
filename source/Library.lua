@@ -5638,6 +5638,7 @@ do
             Size = UDim2.new(1, 0, 0, FooterHeight),
             Parent = ColorMenu.Menu,
         })
+        Library:RegisterPanel(FooterBackground, "Groupbox")
         FooterCorner = New("UICorner", {
             TopLeftRadius = UDim.new(0, 0),
             TopRightRadius = UDim.new(0, 0),
@@ -14072,6 +14073,7 @@ function Library:CreateWindow(WindowInfo)
             })
         )
         Library:AddOutline(DialogFrame)
+        Library:RegisterPanel(DialogFrame, "Groupbox")
 
         local InnerContainer = New("Frame", {
             BackgroundTransparency = 1,
@@ -14874,6 +14876,7 @@ function Library:CreateLoading(LoadingInfo)
     })
     Library:AddOutline(MainFrame)
     table.insert(Library.Corners, New("UICorner", { CornerRadius = UDim.new(0, Library.CornerRadius), Parent = MainFrame }))
+    Library:RegisterPanel(MainFrame, "Groupbox")
 
     local MainScale = New("UIScale", {
         Scale = Library.IsMobile and 0.8 or 1,
