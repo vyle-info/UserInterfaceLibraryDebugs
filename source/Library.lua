@@ -1522,24 +1522,31 @@ function Library:ElementTransparency(Base)
     return 1 - (1 - (Base or 0)) * GetElementScale(Library.GroupboxTransparency)
 end
 
-function Library:RegisterElement(Frame)
-    Library.ElementFrames[Frame] = true
+-- UIStrokes (outlines) use "Transparency", everything else "BackgroundTransparency"
+local function GetElementProp(Object)
+    return Object:IsA("UIStroke") and "Transparency" or "BackgroundTransparency"
+end
 
-    if Frame.BackgroundTransparency < 1 then
-        Frame.BackgroundTransparency = Library:ElementTransparency(Frame.BackgroundTransparency)
+function Library:RegisterElement(Object)
+    Library.ElementFrames[Object] = true
+
+    local Prop = GetElementProp(Object)
+    if Object[Prop] < 1 then
+        Object[Prop] = Library:ElementTransparency(Object[Prop])
     end
-    return Frame
+    return Object
 end
 
 local function ApplyElementTransparency(Value)
     local OldScale = GetElementScale(Library.GroupboxTransparency)
     local NewScale = GetElementScale(Value)
 
-    for Frame in Library.ElementFrames do
-        local Current = Frame.BackgroundTransparency
+    for Object in Library.ElementFrames do
+        local Prop = GetElementProp(Object)
+        local Current = Object[Prop]
         if Current < 1 then -- 1 == hidden state (unselected tab, idle dropdown row...), leave it alone
             local Base = math.clamp(1 - (1 - Current) / OldScale, 0, 1)
-            Frame.BackgroundTransparency = 1 - (1 - Base) * NewScale
+            Object[Prop] = 1 - (1 - Base) * NewScale
         end
     end
 end
@@ -1724,6 +1731,10 @@ local function New(ClassName: string, Properties: { [string]: any }): any
 
     if Properties.BackgroundColor3 == "MainColor" and (ClassName == "Frame" or ClassName == "TextButton" or ClassName == "TextBox") then
         Library:RegisterElement(Instance)
+    elseif ClassName == "UIStroke" and (Properties.Color == "OutlineColor" or Properties.Color == "DarkColor") then
+        Library:RegisterElement(Instance)
+    elseif ClassName == "Frame" and Properties.BackgroundColor3 == "OutlineColor" then
+        Library:RegisterElement(Instance) -- divider lines
     end
 
     if Properties["Parent"] and not Properties["ZIndex"] then
@@ -3311,6 +3322,7 @@ function Library:AddDraggableLabel(...)
         ZIndex = 1,
         Parent = Floats,
     })
+    Library:RegisterElement(Label)
 
     table.insert(
         Library.Corners,
@@ -3450,6 +3462,7 @@ function Library:AddDraggableButton(...)
         ZIndex = 1,
         Parent = Floats,
     })
+    Library:RegisterElement(Button)
     table.insert(
         Library.Corners,
         New("UICorner", {
@@ -3531,6 +3544,7 @@ function Library:AddDraggableMenu(Name: string)
         ZIndex = 1,
         Parent = Floats,
     })
+    Library:RegisterElement(Holder)
     table.insert(
         Library.Corners,
         New("UICorner", {
@@ -3627,6 +3641,7 @@ function Library:AddDraggableImageButton(...)
         ZIndex = 1,
         Parent = Floats,
     })
+    Library:RegisterElement(Button)
 
     local IconImage = New("ImageLabel", {
         BackgroundTransparency = 1,
@@ -3758,6 +3773,7 @@ function Library:AddContextMenu(
             Parent = ParentGui,
         })
     end
+    Library:RegisterElement(Menu)
     table.insert(
         Library.Scales,
         New("UIScale", {
@@ -4085,6 +4101,7 @@ local TooltipLabel = New("TextLabel", {
     ZIndex = 30,
     Parent = ScreenGui,
 })
+Library:RegisterElement(TooltipLabel)
 New("UIPadding", {
     PaddingBottom = UDim.new(0, 2),
     PaddingLeft = UDim.new(0, 4),
@@ -6156,7 +6173,7 @@ do
 
         local function ApplyHolderVisual(Disabled: boolean)
             Holder.Active = not Disabled
-            HolderStroke.Transparency = Disabled and 0.5 or 0
+            HolderStroke.Transparency = Library:ElementTransparency(Disabled and 0.5 or 0)
             Holder.BackgroundTransparency = Disabled and 0.5 or 0
 
             if Disabled then
@@ -7003,7 +7020,7 @@ do
 
                 SubButton.Base.BackgroundColor3 = SubButton.Disabled and Library.Scheme.BackgroundColor or Library.Scheme.MainColor
                 SubButton.Label.TextTransparency = SubButton.Disabled and 0.8 or 0.4
-                SubButton.Stroke.Transparency = SubButton.Disabled and 0.5 or 0
+                SubButton.Stroke.Transparency = Library:ElementTransparency(SubButton.Disabled and 0.5 or 0)
 
                 if SubButton.IconImage and SubButton.IconImage.Visible then
                     SubButton.IconImage.ImageTransparency = SubButton.Disabled and 0.8 or 0.4
@@ -7102,7 +7119,7 @@ do
 
             Button.Base.BackgroundColor3 = Button.Disabled and Library.Scheme.BackgroundColor or Library.Scheme.MainColor
             Button.Label.TextTransparency = Button.Disabled and 0.8 or 0.4
-            Button.Stroke.Transparency = Button.Disabled and 0.5 or 0
+            Button.Stroke.Transparency = Library:ElementTransparency(Button.Disabled and 0.5 or 0)
 
             if Button.IconImage and Button.IconImage.Visible then
                 Button.IconImage.ImageTransparency = Button.Disabled and 0.8 or 0.4
@@ -7306,7 +7323,7 @@ do
                 return
             end
 
-            CheckboxStroke.Transparency = Toggle.Disabled and 0.5 or 0
+            CheckboxStroke.Transparency = Library:ElementTransparency(Toggle.Disabled and 0.5 or 0)
 
             if Toggle.Disabled then
                 Label.TextTransparency = 0.8
@@ -7570,7 +7587,7 @@ do
             local Offset = Toggle.Value and 1 or 0
 
             Switch.BackgroundTransparency = Library:ElementTransparency(Toggle.Disabled and 0.75 or 0)
-            SwitchStroke.Transparency = Toggle.Disabled and 0.75 or 0
+            SwitchStroke.Transparency = Library:ElementTransparency(Toggle.Disabled and 0.75 or 0)
 
             Switch.BackgroundColor3 = Toggle.Value and Library.Scheme.AccentColor or Library.Scheme.MainColor
             SwitchStroke.Color = Toggle.Value and Library.Scheme.AccentColor or Library.Scheme.OutlineColor
@@ -7832,7 +7849,7 @@ do
 
             Label.TextTransparency = Input.Disabled and 0.8 or 0
             Box.TextTransparency = Input.Disabled and 0.8 or 0
-            BoxStroke.Transparency = Input.Disabled and 0.5 or 0
+            BoxStroke.Transparency = Library:ElementTransparency(Input.Disabled and 0.5 or 0)
 
             Box.BackgroundColor3 = Input.Disabled and Library.Scheme.BackgroundColor or Library.Scheme.MainColor
             Library.Registry[Box].BackgroundColor3 = Input.Disabled and "BackgroundColor" or "MainColor"
@@ -10724,7 +10741,6 @@ function Library:Notify(...)
         ZIndex = 5,
         Parent = FakeBackground,
     })
-    Library.ElementFrames[Holder] = nil -- notifications are not part of the window
     table.insert(
         Library.Corners,
         New("UICorner", {
