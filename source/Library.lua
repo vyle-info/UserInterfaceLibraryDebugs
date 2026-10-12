@@ -1498,16 +1498,54 @@ local function ApplyPanelTransparency(Kind, Value)
     end
 end
 
+-- MainFrame itself is always fully transparent now. Every region of the window
+-- (top bar, sidebar, container, footer) paints its OWN background, so nothing is
+-- stacked on top of another layer and they all share one transparency value.
 function Library:SetBackgroundTransparency(Value)
     Library.BackgroundTransparency = Value
     ApplyPanelTransparency("Background", Value)
+end
 
-    if Library.Window then
-        Library.Window.MainFrame.BackgroundTransparency = Value
+--// Elements (buttons, inputs, dropdowns, sliders, toggles, tab buttons, search bar...) \--
+-- They follow GroupboxTransparency. `Library.ElementFrames` is filled automatically by New()
+-- for every frame that uses the MainColor scheme color.
+Library.ElementFrames = setmetatable({}, { __mode = "k" })
+
+-- capped just below 1 so a "visible" element can always be told apart from a hidden one (== 1)
+local function GetElementScale(Value)
+    return 1 - math.min(Value, 0.99)
+end
+
+-- Use this wherever code sets a "visible" BackgroundTransparency on an element
+-- (Library:ElementTransparency(0) instead of 0, Library:ElementTransparency(0.5) for a disabled look...)
+function Library:ElementTransparency(Base)
+    return 1 - (1 - (Base or 0)) * GetElementScale(Library.GroupboxTransparency)
+end
+
+function Library:RegisterElement(Frame)
+    Library.ElementFrames[Frame] = true
+
+    if Frame.BackgroundTransparency < 1 then
+        Frame.BackgroundTransparency = Library:ElementTransparency(Frame.BackgroundTransparency)
+    end
+    return Frame
+end
+
+local function ApplyElementTransparency(Value)
+    local OldScale = GetElementScale(Library.GroupboxTransparency)
+    local NewScale = GetElementScale(Value)
+
+    for Frame in Library.ElementFrames do
+        local Current = Frame.BackgroundTransparency
+        if Current < 1 then -- 1 == hidden state (unselected tab, idle dropdown row...), leave it alone
+            local Base = math.clamp(1 - (1 - Current) / OldScale, 0, 1)
+            Frame.BackgroundTransparency = 1 - (1 - Base) * NewScale
+        end
     end
 end
 
 function Library:SetGroupboxTransparency(Value)
+    ApplyElementTransparency(Value) -- must run before the stored value changes
     Library.GroupboxTransparency = Value
     ApplyPanelTransparency("Groupbox", Value)
 end
@@ -1683,6 +1721,10 @@ local function New(ClassName: string, Properties: { [string]: any }): any
         FillInstance(Templates[ClassName], Instance)
     end
     FillInstance(Properties, Instance)
+
+    if Properties.BackgroundColor3 == "MainColor" and (ClassName == "Frame" or ClassName == "TextButton" or ClassName == "TextBox") then
+        Library:RegisterElement(Instance)
+    end
 
     if Properties["Parent"] and not Properties["ZIndex"] then
         pcall(function()
@@ -4754,7 +4796,7 @@ do
 
                 KeyPicker.Mode = Mode
 
-                Button.BackgroundTransparency = 0
+                Button.BackgroundTransparency = Library:ElementTransparency(0)
                 Button.TextTransparency = 0
 
                 MenuTable:Close()
@@ -4780,7 +4822,7 @@ do
                 end
 
                 TweenService:Create(Button, Library.TweenInfo, {
-                    BackgroundTransparency = 0.7,
+                    BackgroundTransparency = Library:ElementTransparency(0.7),
                     TextTransparency = 0.1,
                 }):Play()
             end))
@@ -6780,6 +6822,7 @@ do
                 Visible = Button.Visible,
                 Parent = Holder,
             })
+            Library:RegisterElement(Base)
 
             local Stroke = New("UIStroke", {
                 Color = "OutlineColor",
@@ -7526,7 +7569,7 @@ do
 
             local Offset = Toggle.Value and 1 or 0
 
-            Switch.BackgroundTransparency = Toggle.Disabled and 0.75 or 0
+            Switch.BackgroundTransparency = Library:ElementTransparency(Toggle.Disabled and 0.75 or 0)
             SwitchStroke.Transparency = Toggle.Disabled and 0.75 or 0
 
             Switch.BackgroundColor3 = Toggle.Value and Library.Scheme.AccentColor or Library.Scheme.MainColor
@@ -9044,7 +9087,7 @@ do
 
                 Row.Selected = Selected and true or false
 
-                Container.BackgroundTransparency = Selected and 0 or 1
+                Container.BackgroundTransparency = Selected and Library:ElementTransparency(0) or 1
                 Button.TextTransparency = Entry.IsDisabled and 0.8 or Selected and 0 or 0.5
 
                 if Entry.ValueImage then
@@ -9861,6 +9904,7 @@ do
             Size = UDim2.fromScale(1, 1),
             Parent = Holder,
         })
+        Library.ElementFrames[Box] = nil -- user controls this one via Image.BackgroundTransparency
         table.insert(
             Library.Corners,
             New("UICorner", {
@@ -10680,6 +10724,7 @@ function Library:Notify(...)
         ZIndex = 5,
         Parent = FakeBackground,
     })
+    Library.ElementFrames[Holder] = nil -- notifications are not part of the window
     table.insert(
         Library.Corners,
         New("UICorner", {
@@ -11108,6 +11153,8 @@ function Library:CreateWindow(WindowInfo)
     local BottomBackgroundCorner
     local FooterLabel
     local TopBar
+    local TopBarBackground
+    local TopBarCorner
     local WindowSnapConfig = {
         Enabled = WindowInfo.Snapping,
         Distance = WindowInfo.SnapDistance,
@@ -11375,7 +11422,7 @@ function Library:CreateWindow(WindowInfo)
             end,
             Name = "Main",
             Text = "",
-            BackgroundTransparency = Library.BackgroundTransparency,
+            BackgroundTransparency = 1, -- every region paints its own background (see TopBarBackground)
             Position = WindowInfo.Position,
             Size = WindowInfo.Size,
             Visible = false,
@@ -11465,6 +11512,26 @@ function Library:CreateWindow(WindowInfo)
             Size = UDim2.new(1, 0, 0, 48),
             Parent = MainFrame,
         })
+        -- Same color MainFrame used to give the top bar, but painted by the top bar itself
+        -- so it uses the exact same transparency as the sidebar / container / footer.
+        TopBarBackground = New("Frame", {
+            BackgroundColor3 = function()
+                return Library:GetBetterColor(Library.Scheme.BackgroundColor, -1)
+            end,
+            Name = "TopBarBackground",
+            Size = UDim2.fromScale(1, 1),
+            ZIndex = 0,
+            Parent = TopBar,
+        })
+        TopBarCorner = New("UICorner", {
+            CornerRadius = UDim.new(0, 0),
+            TopLeftRadius = UDim.new(0, WindowInfo.CornerRadius),
+            TopRightRadius = UDim.new(0, WindowInfo.CornerRadius),
+            BottomLeftRadius = UDim.new(0, 0),
+            BottomRightRadius = UDim.new(0, 0),
+            Parent = TopBarBackground,
+        })
+        Library:RegisterPanel(TopBarBackground)
         Library:MakeDraggable(MainFrame, TopBar, false, true, WindowSnapConfig)
 
         --// Title \\--
@@ -11933,6 +12000,10 @@ function Library:CreateWindow(WindowInfo)
 
         if ResizeButton then
             ResizeButton.Position = UDim2.new(1, -Radius / 4, 0, 0)
+        end
+        if TopBarCorner then
+            TopBarCorner.TopLeftRadius = RadiusUDim
+            TopBarCorner.TopRightRadius = RadiusUDim
         end
         if BottomBackgroundCorner then
             BottomBackground.Size = UDim2.new(1, 0, 0, math.max(20, Radius * 2))
@@ -12722,7 +12793,7 @@ function Library:CreateWindow(WindowInfo)
                 end
 
                 function Tab:Hide()
-                    Button.BackgroundTransparency = 0
+                    Button.BackgroundTransparency = Library:ElementTransparency(0)
 
                     if ButtonLabel then
                         ButtonLabel.TextTransparency = 0.5
@@ -13335,7 +13406,7 @@ function Library:CreateWindow(WindowInfo)
             end
 
             TweenService:Create(TabButton, Library.TweenInfo, {
-                BackgroundTransparency = 0,
+                BackgroundTransparency = Library:ElementTransparency(0),
             }):Play()
             if TabIndicator then
                 TweenService:Create(TabIndicator, Library.TweenInfo, {
@@ -13788,7 +13859,7 @@ function Library:CreateWindow(WindowInfo)
             end
 
             TweenService:Create(TabButton, Library.TweenInfo, {
-                BackgroundTransparency = 0,
+                BackgroundTransparency = Library:ElementTransparency(0),
             }):Play()
 
             if TabIndicator then
@@ -14925,6 +14996,7 @@ function Library:CreateLoading(LoadingInfo)
         Size = UDim2.new(0.7, 0, 0, 15),
         Parent = InnerContent,
     })
+    Library.ElementFrames[SliderBar] = nil
     Library:AddOutline(SliderBar)
     table.insert(Library.Corners, New("UICorner", { CornerRadius = UDim.new(0, Library.CornerRadius / 2), Parent = SliderBar }))
 
