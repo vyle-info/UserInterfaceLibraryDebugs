@@ -3786,7 +3786,7 @@ function Library:AddContextMenu(
     end
     Library.PopupFrames[Menu] = true
     Menu.BackgroundTransparency = Library:PopupTransparency()
-Menu.BackgroundColor3 = Library.Scheme.BackgroundColor
+    Menu.BackgroundColor3 = Library.Scheme.BackgroundColor
 
 if Library.Registry[Menu] then
     Library.Registry[Menu].BackgroundColor3 = "BackgroundColor"
