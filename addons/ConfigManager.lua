@@ -660,9 +660,9 @@ function SaveManager:LoadJSON(Content: string)
 
                 --// Keep a matching slider (if the user made one with this index) in sync
                 local Slider = Library.Options and Library.Options[Index]
-                 if Slider and Slider.SetValue then
-                  Slider:SetValue(FinalValue * (Slider.Max or 100))
-               end
+                if Slider and Slider.SetValue then
+                    Slider:SetValue(FinalValue)
+                end
             end
 
             Apply("BackgroundTransparency", TransparencyData.background, Library.SetBackgroundTransparency)
