@@ -459,6 +459,13 @@ function SaveManager:SaveJSON(ConfigName)
 
         objects = {},
         keybindMenu = nil,
+        transparency = nil,
+    }
+
+    --// Window transparency (add "BackgroundTransparency" / "GroupboxTransparency" to the ignore list to skip)
+    CurrentData.transparency = {
+        background = if IgnoreIndexes.BackgroundTransparency then nil else Library.BackgroundTransparency,
+        groupbox = if IgnoreIndexes.GroupboxTransparency then nil else Library.GroupboxTransparency,
     }
 
     if Library.KeybindFrame then
@@ -638,6 +645,29 @@ function SaveManager:LoadJSON(Content: string)
         if not Parser then continue end
 
         task.defer(Parser.Load, Option.idx, Option)
+    end
+
+    --// Transparency (deferred so it runs after the elements above and is not overwritten by them)
+    if typeof(Decoded.transparency) == "table" then
+        local TransparencyData = Decoded.transparency
+
+        task.defer(function()
+            local function Apply(Index: string, Value: any, Setter: (any, number) -> ())
+                if typeof(Value) ~= "number" or IgnoreIndexes[Index] then return end
+
+                local FinalValue = math.clamp(Value, 0, 1)
+                Setter(Library, FinalValue)
+
+                --// Keep a matching slider (if the user made one with this index) in sync
+                local Slider = Library.Options and Library.Options[Index]
+                 if Slider and Slider.SetValue then
+                  Slider:SetValue(FinalValue * (Slider.Max or 100))
+               end
+            end
+
+            Apply("BackgroundTransparency", TransparencyData.background, Library.SetBackgroundTransparency)
+            Apply("GroupboxTransparency", TransparencyData.groupbox, Library.SetGroupboxTransparency)
+        end)
     end
 
     return true
@@ -1205,13 +1235,13 @@ function SaveManager:BuildConfigSection(Tab: any, IconName: string)
             )
         end
     })
-    --// Unload
+     --// Unload
     ConfigurationBox:AddButton("Unload Interface", function()
         SaveManager.Library:Unload()
     end)
 
     return ConfigurationBox
 end
-                                                    
+
 SaveManager:BuildFolderTree()
 return SaveManager
