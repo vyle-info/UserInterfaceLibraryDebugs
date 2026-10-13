@@ -649,13 +649,10 @@ function ThemeManager:ApplyThemeData(ThemeData: any): (boolean, string?)
             continue --// Unrecognized field, ignore it
         end
 
-if Element then
-    if Index == "BackgroundTransparency" or Index == "GroupboxTransparency" then
-        Element:SetValue(FinalValue * (Element.Max or 100)) -- slider is 0-100, library is 0-1
-    else
-        Element:SetValue(FinalValue)
+        if Element then
+            Element:SetValue(FinalValue)
+        end
     end
-end
 
     ThemeManager:ThemeUpdate()
     return true
