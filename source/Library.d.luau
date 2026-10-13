@@ -1082,6 +1082,20 @@ export type Library = {
     SetBackgroundTransparency: (self: Library, Value: number) -> (),
     SetGroupboxTransparency: (self: Library, Value: number) -> (),
     SetPanelTransparency: (self: Library, Value: number) -> (),
+
+    -- Elements (buttons, inputs, dropdowns, sliders, toggles, tab buttons, outlines, keybinds,
+    -- notifications, tooltips...) follow GroupboxTransparency.
+    ElementFrames: { [GuiObject | UIStroke]: boolean },
+    ElementTransparency: (self: Library, Base: number?) -> number,
+    RegisterElement: (self: Library, Object: GuiObject | UIStroke) -> GuiObject | UIStroke,
+
+    -- Popped-out menus (dropdown lists, keybind mode menu...) adapt to the groupbox transparency.
+    PopupFrames: { [GuiObject]: boolean },
+    PopupMaxTransparency: number,
+    PopupMaxDarken: number,
+    PopupTransparency: (self: Library) -> number,
+    PopupColor: (self: Library) -> Color3,
+    RefreshPopups: (self: Library) -> (),
     SetDPIScale: (self: Library, DPIScale: number) -> (),
     GiveSignal: (self: Library, Connection: RBXScriptConnection) -> RBXScriptConnection,
     GetIcon: (self: Library, IconName: string) -> Icon?,
