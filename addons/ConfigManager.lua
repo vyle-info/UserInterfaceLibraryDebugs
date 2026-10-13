@@ -916,8 +916,13 @@ function SaveManager:BuildConfigSection(Tab: any, IconName: string)
 
     local ConfigNameInput, ConfigList, ConfigJSONInput, AutoloadConfigLabel
     local function RefreshList()
+        --// Keep the current selection (SetValues already drops it if the file no longer exists)
         ConfigList:SetValues(SaveManager:RefreshConfigList())
-        ConfigList:SetValue(nil)
+
+        --// Nothing selected yet -> preselect the autoload config
+        if ConfigList.Value == nil and SaveManager.AutoloadConfig then
+            ConfigList:SetValue(SaveManager.AutoloadConfig)
+        end
     end
 
     local function RefreshAutoloadConfigLabel()
