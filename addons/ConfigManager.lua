@@ -576,6 +576,16 @@ function SaveManager:Save(ConfigName: string): (boolean, string?)
     return true
 end
 
+--// Moves a 0-100 transparency slider to match a 0-1 library value WITHOUT firing its callback
+local function SyncTransparencySlider(Slider: any, Fraction: number)
+    if not Slider or not Slider.Display then return end
+
+    local Rounding = Slider.Rounding or 0
+    local Value = tonumber(string.format("%." .. Rounding .. "f", Fraction * Slider.Max))
+    Slider.Value = math.clamp(Value or 0, Slider.Min, Slider.Max)
+    Slider:Display()
+end
+
 function SaveManager:LoadJSON(Content: string)
     if IsStringEmpty(Content) then
         return false, "No JSON provided"
@@ -660,9 +670,7 @@ function SaveManager:LoadJSON(Content: string)
 
                 --// Keep a matching slider (if the user made one with this index) in sync
                 local Slider = Library.Options and Library.Options[Index]
-                if Slider and Slider.SetValue then
-                    Slider:SetValue(FinalValue)
-                end
+                SyncTransparencySlider(Slider, FinalValue)
             end
 
             Apply("BackgroundTransparency", TransparencyData.background, Library.SetBackgroundTransparency)
