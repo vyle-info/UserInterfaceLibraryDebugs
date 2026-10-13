@@ -767,9 +767,8 @@ function ThemeManager:CreateThemeManager(Themesbox: any)
 
     local CustomThemeList, CustomThemeName, ThemeList, FontFace, BackgroundImage, DefaultThemeLabel, ThemeJSONInput
     local function RefreshList()
+        --// Keep the current selection (SetValues already drops it if the item no longer exists)
         CustomThemeList:SetValues(ThemeManager:ReloadCustomThemes())
-        CustomThemeList:SetValue(nil)
-
         ThemeList:SetValues(BuiltInThemesNames)
     end
 
@@ -1135,8 +1134,14 @@ function ThemeManager:CreateThemeManager(Themesbox: any)
     ThemeManager.AppliedToTab = true
     RefreshDefaultThemeLabel()
 
-    if ThemeManager.DefaultThemeName == nil then
+    --// Show the active default theme in the matching dropdown
+    local DefaultName = ThemeManager.DefaultThemeName
+    if DefaultName == nil then
         ThemeList:SetValue("Marden")
+    elseif ThemeManager.BuiltInThemes[DefaultName] then
+        ThemeList:SetValue(DefaultName)
+    else
+        CustomThemeList:SetValue(DefaultName)
     end
 
     return Themesbox
