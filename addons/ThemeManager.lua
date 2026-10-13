@@ -292,7 +292,9 @@ local function BuildCurrentThemeData(): {[string]: any}
     local Library = ThemeManager.Library
     local ThemeData = {
         FontFace = Library.Options.FontFace.Value,
-        BackgroundImage = Library.Options.BackgroundImage.Value
+        BackgroundImage = Library.Options.BackgroundImage.Value,
+        BackgroundTransparency = Library.BackgroundTransparency,
+        GroupboxTransparency = Library.GroupboxTransparency,
     }
 
     for _, SchemeIndex in SchemeIndexes do
@@ -625,6 +627,17 @@ function ThemeManager:ApplyThemeData(ThemeData: any): (boolean, string?)
             if typeof(Value) ~= "string" then continue end
             ThemeManager.Library:SetBackgroundImage(Value)
 
+        elseif Index == "BackgroundTransparency" or Index == "GroupboxTransparency" then
+            --// Window background / groupbox (+ elements) transparency, 0 = solid, 1 = invisible
+            if typeof(Value) ~= "number" then continue end
+            FinalValue = math.clamp(Value, 0, 1)
+
+            if Index == "BackgroundTransparency" then
+                Library:SetBackgroundTransparency(FinalValue)
+            else
+                Library:SetGroupboxTransparency(FinalValue)
+            end
+
         elseif table.find(SchemeIndexes, Index) then
             local SuccessColor, Color = pcall(Color3.fromHex, Value)
             if not SuccessColor then continue end
@@ -636,10 +649,13 @@ function ThemeManager:ApplyThemeData(ThemeData: any): (boolean, string?)
             continue --// Unrecognized field, ignore it
         end
 
-        if Element then
-            Element:SetValue(FinalValue)
-        end
+if Element then
+    if Index == "BackgroundTransparency" or Index == "GroupboxTransparency" then
+        Element:SetValue(FinalValue * (Element.Max or 100)) -- slider is 0-100, library is 0-1
+    else
+        Element:SetValue(FinalValue)
     end
+end
 
     ThemeManager:ThemeUpdate()
     return true
