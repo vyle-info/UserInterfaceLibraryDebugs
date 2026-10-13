@@ -602,6 +602,17 @@ function ThemeManager:ThemeUpdate()
     ThemeManager:UpdateContrastWarning()
 end
 
+--// Moves a 0-100 transparency slider to match a 0-1 library value WITHOUT firing its callback
+--// (going through Slider:SetValue re-triggers the callback, which causes feedback / float garbage)
+local function SyncTransparencySlider(Slider: any, Fraction: number)
+    if not Slider or not Slider.Display then return end
+
+    local Rounding = Slider.Rounding or 0
+    local Value = tonumber(string.format("%." .. Rounding .. "f", Fraction * Slider.Max))
+    Slider.Value = math.clamp(Value or 0, Slider.Min, Slider.Max)
+    Slider:Display()
+end
+
 --// Applies a flat theme data table (either a parsed theme file or an imported JSON blob) to the library.
 --// Split out of ApplyTheme so imported JSON can go through the same path as themes loaded from disk.
 function ThemeManager:ApplyThemeData(ThemeData: any): (boolean, string?)
@@ -650,7 +661,11 @@ function ThemeManager:ApplyThemeData(ThemeData: any): (boolean, string?)
         end
 
         if Element then
-            Element:SetValue(FinalValue)
+            if Index == "BackgroundTransparency" or Index == "GroupboxTransparency" then
+                SyncTransparencySlider(Element, FinalValue)
+            else
+                Element:SetValue(FinalValue)
+            end
         end
     end
 
