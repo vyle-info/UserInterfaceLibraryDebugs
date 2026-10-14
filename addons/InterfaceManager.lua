@@ -1,33 +1,24 @@
---// Interface Manager
---// Put this in: addons/InterfaceManager.lua
+--// InterfaceManager addon
+--// Same pattern as ThemeManager / ConfigManager:
+--//   InterfaceManager:SetLibrary(Library)
+--//   InterfaceManager:SetWindow(Window)
+--//   InterfaceManager:ApplyToTab(Tabs["UI Management"])
 
-local cloneref = (cloneref or clonereference or function(instance: any)
-    return instance
-end)
+local SoundService = game:GetService("SoundService")
+local Debris = game:GetService("Debris")
 
-local SoundService = cloneref(game:GetService("SoundService"))
-local Debris = cloneref(game:GetService("Debris"))
+local InterfaceManager = {}
 
-local InterfaceManager = {
-    Library = nil,
-    Window = nil,
+InterfaceManager.Library = nil
+InterfaceManager.Window = nil
 
-    DefaultNotificationSound = 4590662766,
-    SelectedNotificationSound = 4590662766,
+InterfaceManager.DefaultNotificationSound = 4590662766
+InterfaceManager.SelectedNotificationSound = InterfaceManager.DefaultNotificationSound
+InterfaceManager.NotificationSoundsEnabled = true
+InterfaceManager.NotificationsHidden = false
 
-    NotificationSoundsEnabled = true,
-    NotificationsHidden = false,
+local NotifyHooked = false
 
-    WatermarkEnabled = true,
-    Watermark = nil, -- DraggableLabel (optional)
-
-    MenuKeybind = "F1",
-    WatermarkKeybind = "F2",
-
-    _NotifyHooked = false,
-}
-
---// Setup \\--
 function InterfaceManager:SetLibrary(Library)
     self.Library = Library
 end
@@ -36,142 +27,82 @@ function InterfaceManager:SetWindow(Window)
     self.Window = Window
 end
 
---// Pass your DraggableLabel so the watermark keybind can show/hide it
-function InterfaceManager:SetWatermark(DraggableLabel)
-    self.Watermark = DraggableLabel
-    if DraggableLabel then
-        DraggableLabel:SetVisible(self.WatermarkEnabled)
-    end
+function InterfaceManager:PlayNotificationSound(soundId)
+    local sound = Instance.new("Sound")
+    sound.SoundId = "rbxassetid://" .. (tostring(soundId):gsub("rbxassetid://", ""))
+    sound.Volume = 1
+    sound.Parent = SoundService
+    sound:Play()
+    Debris:AddItem(sound, 5)
 end
 
-function InterfaceManager:SetDefaultKeybinds(MenuKey: string?, WatermarkKey: string?)
-    self.MenuKeybind = MenuKey or self.MenuKeybind
-    self.WatermarkKeybind = WatermarkKey or self.WatermarkKeybind
-end
-
-function InterfaceManager:SetDefaultNotificationSound(SoundId: number)
-    self.DefaultNotificationSound = SoundId
-    self.SelectedNotificationSound = SoundId
-end
-
---// Config ignore list (so SaveManager doesn't save/overwrite keybinds)
-function InterfaceManager:GetIgnoreIndexes()
-    return { "MenuToggleKeybind", "WatermarkToggleKeybind" }
-end
-
---// Notifications \\--
-local function PlayNotificationSound(SoundId)
-    local Sound = Instance.new("Sound")
-    Sound.SoundId = "rbxassetid://" .. (tostring(SoundId):gsub("rbxassetid://", ""))
-    Sound.Volume = 1
-    Sound.Parent = SoundService
-    Sound:Play()
-    Debris:AddItem(Sound, 5)
-end
-
+--// Hooks Library.Notify once (safe to call ApplyToTab multiple times)
 function InterfaceManager:HookNotify()
-    assert(self.Library, "Library is not set, call InterfaceManager:SetLibrary(Library) first.")
-    if self._NotifyHooked then return end
-    self._NotifyHooked = true
+    if NotifyHooked then return end
+    NotifyHooked = true
 
+    local Library = self.Library
     local Manager = self
-    local OriginalNotify = self.Library.Notify
+    local OriginalNotify = Library.Notify
 
-    self.Library.Notify = function(LibSelf, Args, ...)
-        local SoundId
-        if type(Args) == "table" then
-            SoundId = Args.SoundId
+    Library.Notify = function(libSelf, args, ...)
+        local soundId
+        if type(args) == "table" then
+            soundId = args.SoundId
         else
-            SoundId = select(2, ...)
+            soundId = select(2, ...)
         end
-        SoundId = SoundId or Manager.SelectedNotificationSound
+        soundId = soundId or Manager.SelectedNotificationSound
 
         if Manager.NotificationsHidden then
-            if Manager.NotificationSoundsEnabled and SoundId then
-                pcall(PlayNotificationSound, SoundId)
+            if Manager.NotificationSoundsEnabled and soundId then
+                pcall(Manager.PlayNotificationSound, Manager, soundId)
             end
             return
         end
 
-        if type(Args) == "table" and not Manager.NotificationSoundsEnabled then
-            Args.SoundId = nil
+        if type(args) == "table" and not Manager.NotificationSoundsEnabled then
+            args.SoundId = nil
         end
-        return OriginalNotify(LibSelf, Args, ...)
+        return OriginalNotify(libSelf, args, ...)
     end
 end
 
---// Keybinds tabbox (right side) \\--
-function InterfaceManager:BuildKeybindSection(Tab: any, Side: string?)
-    assert(self.Library, "Library is not set, call InterfaceManager:SetLibrary(Library) first.")
-    local Library = self.Library
-    local Manager = self
-
-    local KeybindTabbox = Tab:AddTabbox({
-        Side = Side or "Right",
-        Name = "Keybinds",
-    })
-
-    local MenuTab = KeybindTabbox:AddTab("Interface")
-    MenuTab:AddLabel("Interface Keybind"):AddKeyPicker("MenuToggleKeybind", {
-        Default = Manager.MenuKeybind, NoUI = true, Text = "Toggle Interface",
-    })
-
-    local WatermarkTab = KeybindTabbox:AddTab("Watermark")
-    WatermarkTab:AddLabel("Watermark Keybind"):AddKeyPicker("WatermarkToggleKeybind", {
-        Default = Manager.WatermarkKeybind, NoUI = true, Text = "Toggle Watermark",
-    })
-
-    task.defer(function()
-        Library.Options.MenuToggleKeybind:OnClick(function()
-            Library:Toggle()
-        end)
-
-        Library.Options.WatermarkToggleKeybind:OnClick(function()
-            Manager.WatermarkEnabled = not Manager.WatermarkEnabled
-            if Manager.Watermark then
-                Manager.Watermark:SetVisible(Manager.WatermarkEnabled)
-            end
-        end)
-    end)
-
-    return KeybindTabbox
-end
-
---// General interface settings groupbox \\--
-function InterfaceManager:BuildInterfaceSection(Tab: any, IconName: string?, Side: string?)
-    assert(self.Library, "Library is not set, call InterfaceManager:SetLibrary(Library) first.")
-    assert(self.Window, "Window is not set, call InterfaceManager:SetWindow(Window) first.")
+function InterfaceManager:ApplyToTab(Tab, Side)
+    assert(self.Library, "InterfaceManager: call SetLibrary(Library) first")
+    assert(self.Window, "InterfaceManager: call SetWindow(Window) first")
+    assert(Tab, "InterfaceManager: ApplyToTab needs a tab")
 
     local Library = self.Library
     local Window = self.Window
     local Manager = self
+
+    local Group
+    if Side == "Left" then
+        Group = Tab:AddLeftGroupbox("General Interface Settings", "folder-pen")
+    else
+        Group = Tab:AddRightGroupbox("General Interface Settings", "folder-pen")
+    end
+
     local Toggles = Library.Toggles
 
-    self:HookNotify()
-
-    local Group = Tab:AddGroupbox({
-        Side = Side or "Right",
-        Name = "General Interface Settings",
-        IconName = IconName or "folder-pen",
-    })
-
-    --// Notifications
+    --// Notify settings
     Group:AddDivider("Notify Interface Settings")
 
     Group:AddToggle("DisableNotificationSounds", {
         Text = "Notification Sounds",
         Default = false,
     })
-    Toggles.DisableNotificationSounds:OnChanged(function(State)
-        Manager.NotificationSoundsEnabled = State
+    Toggles.DisableNotificationSounds:OnChanged(function(state)
+        Manager.NotificationSoundsEnabled = state
     end)
 
     Group:AddToggle("DisableNotifications", {
         Text = "Hide Notifications",
         Default = false,
     })
-    Toggles.DisableNotifications:OnChanged(function(State)
-        Manager.NotificationsHidden = State
+    Toggles.DisableNotifications:OnChanged(function(state)
+        Manager.NotificationsHidden = state
     end)
 
     Group:AddInput("NotificationSoundInput", {
@@ -181,17 +112,19 @@ function InterfaceManager:BuildInterfaceSection(Tab: any, IconName: string?, Sid
         Finished = true,
         ClearTextOnFocus = false,
         Placeholder = "e.g. 6518811702",
-        Callback = function(Value)
-            local Id = tostring(Value):match("%d+")
-            if Id and #Id > 0 then
-                Manager.SelectedNotificationSound = tonumber(Id)
+        Callback = function(value)
+            local id = tostring(value):match("%d+")
+            if id and #id > 0 then
+                Manager.SelectedNotificationSound = tonumber(id)
             else
                 Manager.SelectedNotificationSound = Manager.DefaultNotificationSound
             end
         end,
     })
 
-    --// Window
+    self:HookNotify()
+
+    --// Window settings
     Group:AddDivider("Window Interface Settings")
 
     Group:AddSlider("UICornerSlider", {
@@ -200,8 +133,8 @@ function InterfaceManager:BuildInterfaceSection(Tab: any, IconName: string?, Sid
         Min = 0,
         Max = 20,
         Rounding = 1,
-        Callback = function(Value)
-            Window:SetCornerRadius(Value)
+        Callback = function(value)
+            Window:SetCornerRadius(value)
         end,
     })
 
@@ -222,7 +155,11 @@ function InterfaceManager:BuildInterfaceSection(Tab: any, IconName: string?, Sid
 
     Group:AddSlider("BackgroundTransparency", {
         Text = "Background Interface Transparency",
-        Default = 0, Min = 0, Max = 100, Rounding = 1, Suffix = "",
+        Default = 0,
+        Min = 0,
+        Max = 100,
+        Rounding = 1,
+        Suffix = "",
         Callback = function(Value)
             Library:SetBackgroundTransparency(Value / 100)
         end,
@@ -230,13 +167,17 @@ function InterfaceManager:BuildInterfaceSection(Tab: any, IconName: string?, Sid
 
     Group:AddSlider("GroupboxTransparency", {
         Text = "Groupbox Interface Transparency",
-        Default = 0, Min = 0, Max = 100, Rounding = 1, Suffix = "",
+        Default = 0,
+        Min = 0,
+        Max = 100,
+        Rounding = 1,
+        Suffix = "",
         Callback = function(Value)
             Library:SetGroupboxTransparency(Value / 100)
         end,
     })
 
-    --// Utility
+    --// Utility settings
     Group:AddDivider("Utility Interface Settings")
 
     Group:AddToggle("CompactSidebar", {
@@ -259,12 +200,6 @@ function InterfaceManager:BuildInterfaceSection(Tab: any, IconName: string?, Sid
     })
 
     return Group
-end
-
---// Builds both at once
-function InterfaceManager:BuildInterfaceTab(Tab: any)
-    self:BuildInterfaceSection(Tab)
-    self:BuildKeybindSection(Tab)
 end
 
 return InterfaceManager
