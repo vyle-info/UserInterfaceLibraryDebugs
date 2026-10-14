@@ -44,42 +44,8 @@ local SaveManager = {
     AutoloadConfig = nil
 }
 
-
---// Keeps the transparency sliders in sync with the library no matter WHEN they are created.
---// (Themes / configs apply transparency to the library before the sliders exist, so the sliders were created at 0.)
-local function InstallTransparencySliderSync(Library)
-    local Options = Library and Library.Options
-    if typeof(Options) ~= "table" or Library.__TransparencySliderSync then return end
-    Library.__TransparencySliderSync = true
-
-    local Synced = { BackgroundTransparency = true, GroupboxTransparency = true }
-    local Existing = getmetatable(Options)
-    local OldNewIndex = Existing and Existing.__newindex
-
-    local Meta = Existing or {}
-    Meta.__newindex = function(Table, Key, Value)
-        if OldNewIndex then
-            if typeof(OldNewIndex) == "function" then OldNewIndex(Table, Key, Value) else OldNewIndex[Key] = Value end
-        else
-            rawset(Table, Key, Value)
-        end
-
-        if Synced[Key] and typeof(Value) == "table" and Value.Display and Value.Max then
-            local Fraction = Library[Key]
-            if typeof(Fraction) == "number" then
-                local Rounding = Value.Rounding or 0
-                local Number = tonumber(string.format("%." .. Rounding .. "f", Fraction * Value.Max))
-                Value.Value = math.clamp(Number or 0, Value.Min, Value.Max)
-                Value:Display()
-            end
-        end
-    end
-    setmetatable(Options, Meta)
-end
-
 function SaveManager:SetLibrary(Library)
     SaveManager.Library = Library
-    InstallTransparencySliderSync(Library)
 end
 
 --// Element Parser \\--
@@ -950,13 +916,8 @@ function SaveManager:BuildConfigSection(Tab: any, IconName: string)
 
     local ConfigNameInput, ConfigList, ConfigJSONInput, AutoloadConfigLabel
     local function RefreshList()
-        --// Keep the current selection (SetValues already drops it if the file no longer exists)
         ConfigList:SetValues(SaveManager:RefreshConfigList())
-
-        --// Nothing selected yet -> preselect the autoload config
-        if ConfigList.Value == nil and SaveManager.AutoloadConfig then
-            ConfigList:SetValue(SaveManager.AutoloadConfig)
-        end
+        ConfigList:SetValue(nil)
     end
 
     local function RefreshAutoloadConfigLabel()
