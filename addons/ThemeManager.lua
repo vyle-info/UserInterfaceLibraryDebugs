@@ -59,35 +59,35 @@ local ThemeManager = {
     BuiltInThemes = {
         ["Marden"] = {
             1,
-            { FontColor = "ffffff", MainColor = "191919", AccentColor = "7d55ff", BackgroundColor = "0f0f0f", OutlineColor = "282828", BackgroundImage = "" },
+            { FontColor = "ffffff", MainColor = "191919", AccentColor = "7d55ff", BackgroundColor = "0f0f0f", OutlineColor = "282828", BackgroundTransparency = 0, GroupboxTransparency = 0, BackgroundImage = "" },
         },
         ["Minty"] = {
             2,
-            { FontColor = "ffffff", MainColor = "282828", AccentColor = "3db488", BackgroundColor = "252525", OutlineColor = "323232", BackgroundImage = "" },
+            { FontColor = "ffffff", MainColor = "282828", AccentColor = "3db488", BackgroundColor = "252525", OutlineColor = "323232", BackgroundTransparency = 0, GroupboxTransparency = 0, BackgroundImage = "" },
         },
         ["Dracula"] = {
             3,
-            { FontColor = "f8eefb", MainColor = "211a28", AccentColor = "ee9bd8", BackgroundColor = "1f1926", OutlineColor = "2d2238", BackgroundImage = "" },
+            { FontColor = "f8eefb", MainColor = "211a28", AccentColor = "ee9bd8", BackgroundColor = "1f1926", OutlineColor = "2d2238", BackgroundTransparency = 0, GroupboxTransparency = 0, BackgroundImage = "" },
         },
         ["Ember"] = {
             4,
-            { FontColor = "f7ebe4", MainColor = "1a100d", AccentColor = "8c4a30", BackgroundColor = "170e0c", OutlineColor = "211511", BackgroundImage = "" },
+            { FontColor = "f7ebe4", MainColor = "1a100d", AccentColor = "8c4a30", BackgroundColor = "170e0c", OutlineColor = "211511", BackgroundTransparency = 0, GroupboxTransparency = 0, BackgroundImage = "" },
         },
         ["Vesqer"] = {
             5,
-            { FontColor = "e8e8e8", MainColor = "161616", AccentColor = "a68265", BackgroundColor = "131313", OutlineColor = "1b1b1b", BackgroundImage = "" },
+            { FontColor = "e8e8e8", MainColor = "161616", AccentColor = "a68265", BackgroundColor = "131313", OutlineColor = "1b1b1b", BackgroundTransparency = 0, GroupboxTransparency = 0, BackgroundImage = "" },
         },
 		["Forest"] = {
             6,
-            { FontColor = "e8f3ec", MainColor = "101a15", AccentColor = "456953", BackgroundColor = "0e1713", OutlineColor = "15211b", BackgroundImage = "" },
+            { FontColor = "e8f3ec", MainColor = "101a15", AccentColor = "456953", BackgroundColor = "0e1713", OutlineColor = "15211b", BackgroundTransparency = 0, GroupboxTransparency = 0, BackgroundImage = "" },
         },
         ["Chrome"] = {
             7,
-            { FontColor = "c7c7c7", MainColor = "161616", AccentColor = "8a8a8a", BackgroundColor = "161616", OutlineColor = "1b1b1b", BackgroundImage = "" },
+            { FontColor = "c7c7c7", MainColor = "161616", AccentColor = "8a8a8a", BackgroundColor = "161616", OutlineColor = "1b1b1b", BackgroundTransparency = 0, GroupboxTransparency = 0, BackgroundImage = "" },
         },
         ["Ocean"] = {
             8,
-            { FontColor = "e6f1f7", MainColor = "0d151c", AccentColor = "4e899c", BackgroundColor = "0c131a", OutlineColor = "131c24", BackgroundImage = "" },
+            { FontColor = "e6f1f7", MainColor = "0d151c", AccentColor = "4e899c", BackgroundColor = "0c131a", OutlineColor = "131c24", BackgroundTransparency = 0, GroupboxTransparency = 0, BackgroundImage = "" },
         },
     }
 }
