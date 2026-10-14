@@ -35,7 +35,7 @@ local CustomImageManagerAssets = {
     TransparencyTexture = {
         RobloxId = 139785960036434,
         Path = "Marden-assets/assets/images/TransparencyTexture.png",
-        URL = BaseURL .. "assets/TransparencyTexture.png",
+        URL = BaseURL .. "assets/images/TransparencyTexture.png",
 
         Id = nil,
     },
@@ -43,7 +43,7 @@ local CustomImageManagerAssets = {
     SaturationMap = {
         RobloxId = 4155801252,
         Path = "Marden-assets/assets/images/SaturationMap.png",
-        URL = BaseURL .. "assets/SaturationMap.png",
+        URL = BaseURL .. "assets/images/SaturationMap.png",
 
         Id = nil,
     },
@@ -51,7 +51,7 @@ local CustomImageManagerAssets = {
     LoadingIcon = {
         RobloxId = 97544096941083,
         Path = "Marden-assets/assets/images/LoadingIcon.png",
-        URL = BaseURL .. "assets/LoadingIcon.png",
+        URL = BaseURL .. "assets/images/LoadingIcon.png",
 
         Id = nil,
     },
@@ -59,7 +59,7 @@ local CustomImageManagerAssets = {
     CheckIcon = {
         RobloxId = 97682394690683,
         Path = "Marden-assets/assets/images/CheckIcon.png",
-        URL = BaseURL .. "assets/CheckIcon.png",
+        URL = BaseURL .. "assets/images/CheckIcon.png",
 
         Id = nil,
     },
@@ -3957,6 +3957,38 @@ end
             Menu.Visible = true
         end
 
+        --// keep the menu fully on screen (fixes picker getting cut off at the bottom/right)
+        task.defer(function()
+            if not Table.Active or Table.Destroyed then
+                return
+            end
+
+            local Camera = workspace.CurrentCamera
+            if not Camera then
+                return
+            end
+
+            local View = Camera.ViewportSize
+            local Margin = 8
+            local Pos, Size = Menu.AbsolutePosition, Menu.AbsoluteSize
+            local ShiftX, ShiftY = 0, 0
+
+            if Pos.Y + Size.Y > View.Y - Margin then
+                ShiftY = (View.Y - Margin) - (Pos.Y + Size.Y)
+            end
+            if Pos.X + Size.X > View.X - Margin then
+                ShiftX = (View.X - Margin) - (Pos.X + Size.X)
+            end
+
+            if ShiftX ~= 0 or ShiftY ~= 0 then
+                local Current = Menu.Position
+                Menu.Position = UDim2.new(
+                    Current.X.Scale, Current.X.Offset + ShiftX,
+                    Current.Y.Scale, math.max(Margin, Current.Y.Offset + ShiftY)
+                )
+            end
+        end)
+
         Table.Signal = Holder:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
             if typeof(Offset) == "function" then
                 Menu.Position = UDim2.fromOffset(
@@ -5709,10 +5741,40 @@ do
 
         --// Sat Map
         local SatVipMap = New("ImageButton", {
+            AutoButtonColor = false,
             BackgroundColor3 = ColorPicker.Value,
-            Image = CustomImageManager.GetAsset("SaturationMap"),
+            Image = "",
             Size = UDim2.fromOffset(MapSize, MapSize),
             Parent = ColorHolder,
+        })
+
+        --// white (left -> right) and black (top -> bottom) overlays, no image needed
+        local SatWhite = New("Frame", {
+            BackgroundColor3 = Color3.new(1, 1, 1),
+            BorderSizePixel = 0,
+            Size = UDim2.fromScale(1, 1),
+            Parent = SatVipMap,
+        })
+        New("UIGradient", {
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 0),
+                NumberSequenceKeypoint.new(1, 1),
+            }),
+            Parent = SatWhite,
+        })
+        local SatBlack = New("Frame", {
+            BackgroundColor3 = Color3.new(0, 0, 0),
+            BorderSizePixel = 0,
+            Size = UDim2.fromScale(1, 1),
+            Parent = SatVipMap,
+        })
+        New("UIGradient", {
+            Rotation = 90,
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 1),
+                NumberSequenceKeypoint.new(1, 0),
+            }),
+            Parent = SatBlack,
         })
 
         local SatVibCursor = New("Frame", {
