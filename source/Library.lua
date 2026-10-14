@@ -144,12 +144,32 @@ do
 
         RecursiveCreatePath(AssetData.Path, true)
 
+        local function IsValidImage(Data)
+            if typeof(Data) ~= "string" or #Data < 8 then
+                return false
+            end
+
+            return Data:sub(1, 4) == "\137PNG" --// png
+                or Data:sub(1, 2) == "\255\216" --// jpg
+                or Data:sub(1, 3) == "GIF" --// gif
+                or Data:sub(1, 4) == "RIFF" --// webp
+        end
+
         if ForceRedownload ~= true and isfile(AssetData.Path) then
-            return true, nil
+            local Ok, Cached = pcall(readfile, AssetData.Path)
+            if Ok and IsValidImage(Cached) then
+                return true, nil
+            end
+            --// cached file is corrupt (e.g. a saved "404: Not Found"), fall through and re-download
         end
 
         local success, errorMessage = pcall(function()
-            writefile(AssetData.Path, game:HttpGet(AssetData.URL))
+            local Data = game:HttpGet(AssetData.URL)
+            if not IsValidImage(Data) then
+                error("downloaded file is not a valid image: " .. tostring(AssetData.URL))
+            end
+
+            writefile(AssetData.Path, Data)
         end)
 
         return success, errorMessage
@@ -3882,6 +3902,31 @@ end
         })
     end
 
+    --// Positions the menu next to its holder, keeping it fully on screen
+    local function PlaceMenu()
+        local Off = typeof(Offset) == "function" and Offset() or Offset
+        local X = math.floor(Holder.AbsolutePosition.X + Off[1])
+        local Y = math.floor(Holder.AbsolutePosition.Y + Off[2])
+
+        local Bounds = Overlay.AbsoluteSize
+        local MenuSize = Menu.AbsoluteSize
+        local Margin = 8
+
+        if MenuSize.X > 0 and MenuSize.Y > 0 and Bounds.X > 0 and Bounds.Y > 0 then
+            if X + MenuSize.X > Bounds.X - Margin then
+                X = Bounds.X - Margin - MenuSize.X
+            end
+            if Y + MenuSize.Y > Bounds.Y - Margin then
+                Y = Bounds.Y - Margin - MenuSize.Y
+            end
+
+            X = math.max(X, Margin)
+            Y = math.max(Y, Margin)
+        end
+
+        Menu.Position = UDim2.fromOffset(X, Y)
+    end
+
     function Table:Open()
         if CurrentMenu == Table then
             return
@@ -3897,17 +3942,7 @@ end
         Menu.Parent = nil
         Menu.Parent = TargetParent
 
-        if typeof(Offset) == "function" then
-            Menu.Position = UDim2.fromOffset(
-                math.floor(Holder.AbsolutePosition.X + Offset()[1]),
-                math.floor(Holder.AbsolutePosition.Y + Offset()[2])
-            )
-        else
-            Menu.Position = UDim2.fromOffset(
-                math.floor(Holder.AbsolutePosition.X + Offset[1]),
-                math.floor(Holder.AbsolutePosition.Y + Offset[2])
-            )
-        end
+        PlaceMenu()
 
         local TargetSize = typeof(Table.Size) == "function" and Table.Size() or Table.Size
 
@@ -3957,50 +3992,13 @@ end
             Menu.Visible = true
         end
 
-        --// keep the menu fully on screen (fixes picker getting cut off at the bottom/right)
-        task.defer(function()
-            if not Table.Active or Table.Destroyed then
-                return
-            end
-
-            local Camera = workspace.CurrentCamera
-            if not Camera then
-                return
-            end
-
-            local View = Camera.ViewportSize
-            local Margin = 8
-            local Pos, Size = Menu.AbsolutePosition, Menu.AbsoluteSize
-            local ShiftX, ShiftY = 0, 0
-
-            if Pos.Y + Size.Y > View.Y - Margin then
-                ShiftY = (View.Y - Margin) - (Pos.Y + Size.Y)
-            end
-            if Pos.X + Size.X > View.X - Margin then
-                ShiftX = (View.X - Margin) - (Pos.X + Size.X)
-            end
-
-            if ShiftX ~= 0 or ShiftY ~= 0 then
-                local Current = Menu.Position
-                Menu.Position = UDim2.new(
-                    Current.X.Scale, Current.X.Offset + ShiftX,
-                    Current.Y.Scale, math.max(Margin, Current.Y.Offset + ShiftY)
-                )
-            end
-        end)
+        if Table.SizeSignal then
+            Table.SizeSignal:Disconnect()
+        end
+        Table.SizeSignal = Menu:GetPropertyChangedSignal("AbsoluteSize"):Connect(PlaceMenu)
 
         Table.Signal = Holder:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
-            if typeof(Offset) == "function" then
-                Menu.Position = UDim2.fromOffset(
-                    math.floor(Holder.AbsolutePosition.X + Offset()[1]),
-                    math.floor(Holder.AbsolutePosition.Y + Offset()[2])
-                )
-            else
-                Menu.Position = UDim2.fromOffset(
-                    math.floor(Holder.AbsolutePosition.X + Offset[1]),
-                    math.floor(Holder.AbsolutePosition.Y + Offset[2])
-                )
-            end
+            PlaceMenu()
 
             local HolderAllowed = Library:IsInsideFrame(Library.WindowContainer, Holder)
             if not HolderAllowed then
@@ -4028,6 +4026,10 @@ end
         if Table.Signal then
             Table.Signal:Disconnect()
             Table.Signal = nil
+        end
+        if Table.SizeSignal then
+            Table.SizeSignal:Disconnect()
+            Table.SizeSignal = nil
         end
 
         Table.Active = false
@@ -5641,6 +5643,10 @@ do
         ColorMenu.List.Padding = UDim.new(0, 0)
         ColorPicker.ColorMenu = ColorMenu
 
+        --// keep the picker opaque even when groupbox transparency is high
+        Library.PopupFrames[ColorMenu.Menu] = nil
+        ColorMenu.Menu.BackgroundTransparency = 0
+
         --// Content Holder \\--
         local ContentHolder = New("Frame", {
             AutomaticSize = Enum.AutomaticSize.Y,
@@ -5741,40 +5747,10 @@ do
 
         --// Sat Map
         local SatVipMap = New("ImageButton", {
-            AutoButtonColor = false,
             BackgroundColor3 = ColorPicker.Value,
-            Image = "",
+            Image = CustomImageManager.GetAsset("SaturationMap"),
             Size = UDim2.fromOffset(MapSize, MapSize),
             Parent = ColorHolder,
-        })
-
-        --// white (left -> right) and black (top -> bottom) overlays, no image needed
-        local SatWhite = New("Frame", {
-            BackgroundColor3 = Color3.new(1, 1, 1),
-            BorderSizePixel = 0,
-            Size = UDim2.fromScale(1, 1),
-            Parent = SatVipMap,
-        })
-        New("UIGradient", {
-            Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 0),
-                NumberSequenceKeypoint.new(1, 1),
-            }),
-            Parent = SatWhite,
-        })
-        local SatBlack = New("Frame", {
-            BackgroundColor3 = Color3.new(0, 0, 0),
-            BorderSizePixel = 0,
-            Size = UDim2.fromScale(1, 1),
-            Parent = SatVipMap,
-        })
-        New("UIGradient", {
-            Rotation = 90,
-            Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 1),
-                NumberSequenceKeypoint.new(1, 0),
-            }),
-            Parent = SatBlack,
         })
 
         local SatVibCursor = New("Frame", {
