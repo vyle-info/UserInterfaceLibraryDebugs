@@ -144,32 +144,12 @@ do
 
         RecursiveCreatePath(AssetData.Path, true)
 
-        local function IsValidImage(Data)
-            if typeof(Data) ~= "string" or #Data < 8 then
-                return false
-            end
-
-            return Data:sub(1, 4) == "\137PNG" --// png
-                or Data:sub(1, 2) == "\255\216" --// jpg
-                or Data:sub(1, 3) == "GIF" --// gif
-                or Data:sub(1, 4) == "RIFF" --// webp
-        end
-
         if ForceRedownload ~= true and isfile(AssetData.Path) then
-            local Ok, Cached = pcall(readfile, AssetData.Path)
-            if Ok and IsValidImage(Cached) then
-                return true, nil
-            end
-            --// cached file is corrupt (e.g. a saved "404: Not Found"), fall through and re-download
+            return true, nil
         end
 
         local success, errorMessage = pcall(function()
-            local Data = game:HttpGet(AssetData.URL)
-            if not IsValidImage(Data) then
-                error("downloaded file is not a valid image: " .. tostring(AssetData.URL))
-            end
-
-            writefile(AssetData.Path, Data)
+            writefile(AssetData.Path, game:HttpGet(AssetData.URL))
         end)
 
         return success, errorMessage
@@ -3902,31 +3882,6 @@ end
         })
     end
 
-    --// Positions the menu next to its holder, keeping it fully on screen
-    local function PlaceMenu()
-        local Off = typeof(Offset) == "function" and Offset() or Offset
-        local X = math.floor(Holder.AbsolutePosition.X + Off[1])
-        local Y = math.floor(Holder.AbsolutePosition.Y + Off[2])
-
-        local Bounds = Overlay.AbsoluteSize
-        local MenuSize = Menu.AbsoluteSize
-        local Margin = 8
-
-        if MenuSize.X > 0 and MenuSize.Y > 0 and Bounds.X > 0 and Bounds.Y > 0 then
-            if X + MenuSize.X > Bounds.X - Margin then
-                X = Bounds.X - Margin - MenuSize.X
-            end
-            if Y + MenuSize.Y > Bounds.Y - Margin then
-                Y = Bounds.Y - Margin - MenuSize.Y
-            end
-
-            X = math.max(X, Margin)
-            Y = math.max(Y, Margin)
-        end
-
-        Menu.Position = UDim2.fromOffset(X, Y)
-    end
-
     function Table:Open()
         if CurrentMenu == Table then
             return
@@ -3942,7 +3897,17 @@ end
         Menu.Parent = nil
         Menu.Parent = TargetParent
 
-        PlaceMenu()
+        if typeof(Offset) == "function" then
+            Menu.Position = UDim2.fromOffset(
+                math.floor(Holder.AbsolutePosition.X + Offset()[1]),
+                math.floor(Holder.AbsolutePosition.Y + Offset()[2])
+            )
+        else
+            Menu.Position = UDim2.fromOffset(
+                math.floor(Holder.AbsolutePosition.X + Offset[1]),
+                math.floor(Holder.AbsolutePosition.Y + Offset[2])
+            )
+        end
 
         local TargetSize = typeof(Table.Size) == "function" and Table.Size() or Table.Size
 
@@ -3992,13 +3957,18 @@ end
             Menu.Visible = true
         end
 
-        if Table.SizeSignal then
-            Table.SizeSignal:Disconnect()
-        end
-        Table.SizeSignal = Menu:GetPropertyChangedSignal("AbsoluteSize"):Connect(PlaceMenu)
-
         Table.Signal = Holder:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
-            PlaceMenu()
+            if typeof(Offset) == "function" then
+                Menu.Position = UDim2.fromOffset(
+                    math.floor(Holder.AbsolutePosition.X + Offset()[1]),
+                    math.floor(Holder.AbsolutePosition.Y + Offset()[2])
+                )
+            else
+                Menu.Position = UDim2.fromOffset(
+                    math.floor(Holder.AbsolutePosition.X + Offset[1]),
+                    math.floor(Holder.AbsolutePosition.Y + Offset[2])
+                )
+            end
 
             local HolderAllowed = Library:IsInsideFrame(Library.WindowContainer, Holder)
             if not HolderAllowed then
@@ -4026,10 +3996,6 @@ end
         if Table.Signal then
             Table.Signal:Disconnect()
             Table.Signal = nil
-        end
-        if Table.SizeSignal then
-            Table.SizeSignal:Disconnect()
-            Table.SizeSignal = nil
         end
 
         Table.Active = false
@@ -5642,10 +5608,6 @@ do
             end, false, "no_top_left")
         ColorMenu.List.Padding = UDim.new(0, 0)
         ColorPicker.ColorMenu = ColorMenu
-
-        --// keep the picker opaque even when groupbox transparency is high
-        Library.PopupFrames[ColorMenu.Menu] = nil
-        ColorMenu.Menu.BackgroundTransparency = 0
 
         --// Content Holder \\--
         local ContentHolder = New("Frame", {
