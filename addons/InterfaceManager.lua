@@ -199,7 +199,7 @@ function InterfaceManager:ApplyToTab(Tab, Side)
         end,
     })
 
-    return Group
-end
+       return Group
+   end
 
-return InterfaceManager
+   return InterfaceManager
