@@ -1131,7 +1131,6 @@ function ThemeManager:CreateThemeManager(Themesbox: any)
 
     --// Load default
     ThemeManager:LoadDefault()
-    ThemeManager:UpdateContrastWarning()
     ThemeManager.AppliedToTab = true
     RefreshDefaultThemeLabel()
 
