@@ -7,6 +7,7 @@ export type Scheme = {
     AccentColor: Color3,
     OutlineColor: Color3,
     FontColor: Color3,
+    ElementColor: Color3,
     Font: Font,
     RedColor: Color3,
     DestructiveColor: Color3,
