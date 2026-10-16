@@ -811,8 +811,8 @@ function ThemeManager:CreateThemeManager(Themesbox: any)
     local MainColor = CreateColorOption("Main color", "MainColor")
     local AccentColor = CreateColorOption("Accent color", "AccentColor")
     local OutlineColor = CreateColorOption("Outline color", "OutlineColor")
+	local ElementColor = CreateColorOption("Element color", "ElementColor")
     local FontColor = CreateColorOption("Font color", "FontColor")
-    local ElementColor = CreateColorOption("Element color", "ElementColor")
 
     --// Accessibility: live contrast readout for the colors above
     ThemeManager.ContrastLabel = Themesbox:AddLabel({
