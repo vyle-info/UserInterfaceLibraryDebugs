@@ -1475,6 +1475,7 @@ Library.PanelFrames = {
 }
 Library.BackgroundTransparency = 0
 Library.GroupboxTransparency = 0
+Library.ElementTransparencyValue = 0 -- elements (buttons, inputs, sliders...) have their own value now
 
 -- Kind: "Background" (main window / tabs / container) or "Groupbox" (groupboxes & tabboxes)
 function Library:RegisterPanel(Panel, Kind)
@@ -1507,7 +1508,8 @@ function Library:SetBackgroundTransparency(Value)
 end
 
 --// Elements (buttons, inputs, dropdowns, sliders, toggles, tab buttons, search bar...) \--
--- They follow GroupboxTransparency. `Library.ElementFrames` is filled automatically by New()
+-- They follow Library.ElementTransparencyValue (set with Library:SetElementTransparency),
+-- NOT the groupbox transparency. `Library.ElementFrames` is filled automatically by New()
 -- for every frame that uses the MainColor scheme color.
 Library.ElementFrames = setmetatable({}, { __mode = "k" })
 
@@ -1519,7 +1521,7 @@ end
 -- Use this wherever code sets a "visible" BackgroundTransparency on an element
 -- (Library:ElementTransparency(0) instead of 0, Library:ElementTransparency(0.5) for a disabled look...)
 function Library:ElementTransparency(Base)
-    return 1 - (1 - (Base or 0)) * GetElementScale(Library.GroupboxTransparency)
+    return 1 - (1 - (Base or 0)) * GetElementScale(Library.ElementTransparencyValue)
 end
 
 -- UIStrokes (outlines) use "Transparency", everything else "BackgroundTransparency"
@@ -1538,7 +1540,7 @@ function Library:RegisterElement(Object)
 end
 
 local function ApplyElementTransparency(Value)
-    local OldScale = GetElementScale(Library.GroupboxTransparency)
+    local OldScale = GetElementScale(Library.ElementTransparencyValue)
     local NewScale = GetElementScale(Value)
 
     for Object in Library.ElementFrames do
@@ -1558,8 +1560,8 @@ function Library:PopupTransparency()
     return math.max(Library.GroupboxTransparency - 0.07, 0)
 end
 
+-- Groupboxes / tabboxes only. Elements are controlled separately by SetElementTransparency.
 function Library:SetGroupboxTransparency(Value)
-    ApplyElementTransparency(Value) -- must run before the stored value changes
     Library.GroupboxTransparency = Value
     ApplyPanelTransparency("Groupbox", Value)
 
@@ -1568,10 +1570,17 @@ function Library:SetGroupboxTransparency(Value)
     end
 end
 
--- Backwards compatible: sets both at once
+-- Elements only (buttons, inputs, dropdowns, sliders, toggles, tab buttons, outlines...)
+function Library:SetElementTransparency(Value)
+    ApplyElementTransparency(Value) -- must run before the stored value changes
+    Library.ElementTransparencyValue = Value
+end
+
+-- Backwards compatible: sets all three at once
 function Library:SetPanelTransparency(Value)
     Library:SetBackgroundTransparency(Value)
     Library:SetGroupboxTransparency(Value)
+    Library:SetElementTransparency(Value)
 end
 
 function Library:SetDPIScale(DPIScale: number)
