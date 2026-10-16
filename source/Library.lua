@@ -5580,21 +5580,8 @@ do
             Holder,
             UDim2.fromOffset(MenuWidth, 0),
             function()
-        local MenuHeight = ColorMenu.Menu.AbsoluteSize.Y
-        local HolderTop = Holder.AbsolutePosition.Y
-        local BelowY = HolderTop + Holder.AbsoluteSize.Y + 1.5
-        local ViewportTop = Overlay.AbsolutePosition.Y
-        local ViewportBottom = ViewportTop + Overlay.AbsoluteSize.Y
-
-        if BelowY + MenuHeight > ViewportBottom then
-           local AboveY = HolderTop - MenuHeight - 1.5
-                 if AboveY >= ViewportTop then
-                    return { 0.5, AboveY - HolderTop }
-                 end
-              end
-
-    return { 0.5, Holder.AbsoluteSize.Y + 1.5 }
-end,
+                return { 0.5, Holder.AbsoluteSize.Y + 1.5 }
+            end,
             1, function(Active: boolean)
                 local Half = UDim.new(0, Library.CornerRadius / 2)
                 local Zero = UDim.new(0, 0)
