@@ -1079,10 +1079,13 @@ export type Library = {
     UpdateDPI: (self: Library, Instance: GuiObject, Properties: { [string]: any }) -> (),
     SetBackgroundTransparency: (self: Library, Value: number) -> (),
     SetGroupboxTransparency: (self: Library, Value: number) -> (),
+    SetElementTransparency: (self: Library, Value: number) -> (),
     SetPanelTransparency: (self: Library, Value: number) -> (),
+    ElementTransparencyValue: number,
 
     -- Elements (buttons, inputs, dropdowns, sliders, toggles, tab buttons, outlines, keybinds,
-    -- notifications, tooltips...) follow GroupboxTransparency.
+    -- notifications, tooltips...) follow ElementTransparencyValue (SetElementTransparency),
+    -- independently of GroupboxTransparency.
     ElementFrames: { [GuiObject | UIStroke]: boolean },
     ElementTransparency: (self: Library, Base: number?) -> number,
     RegisterElement: (self: Library, Object: GuiObject | UIStroke) -> GuiObject | UIStroke,
