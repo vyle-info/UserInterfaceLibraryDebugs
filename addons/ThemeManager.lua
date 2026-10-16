@@ -59,35 +59,35 @@ local ThemeManager = {
     BuiltInThemes = {
         ["Marden"] = {
             1,
-            { FontColor = "ffffff", MainColor = "191919", AccentColor = "7d55ff", BackgroundColor = "0f0f0f", OutlineColor = "282828", BackgroundTransparency = 0, GroupboxTransparency = 0, BackgroundImage = "" },
+            { FontColor = "ffffff", MainColor = "191919", AccentColor = "7d55ff", BackgroundColor = "0f0f0f", OutlineColor = "282828", BackgroundTransparency = 0, GroupboxTransparency = 0, ElementTransparency = 0, BackgroundImage = "" },
         },
         ["Minty"] = {
             2,
-            { FontColor = "ffffff", MainColor = "282828", AccentColor = "3db488", BackgroundColor = "252525", OutlineColor = "323232", BackgroundTransparency = 0, GroupboxTransparency = 0, BackgroundImage = "" },
+            { FontColor = "ffffff", MainColor = "282828", AccentColor = "3db488", BackgroundColor = "252525", OutlineColor = "323232", BackgroundTransparency = 0, GroupboxTransparency = 0, ElementTransparency = 0, BackgroundImage = "" },
         },
         ["Dracula"] = {
             3,
-            { FontColor = "f8eefb", MainColor = "211a28", AccentColor = "ee9bd8", BackgroundColor = "1f1926", OutlineColor = "2d2238", BackgroundTransparency = 0, GroupboxTransparency = 0, BackgroundImage = "" },
+            { FontColor = "f8eefb", MainColor = "211a28", AccentColor = "ee9bd8", BackgroundColor = "1f1926", OutlineColor = "2d2238", BackgroundTransparency = 0, GroupboxTransparency = 0, ElementTransparency = 0, BackgroundImage = "" },
         },
         ["Ember"] = {
             4,
-            { FontColor = "f7ebe4", MainColor = "1a100d", AccentColor = "8c4a30", BackgroundColor = "170e0c", OutlineColor = "211511", BackgroundTransparency = 0, GroupboxTransparency = 0, BackgroundImage = "" },
+            { FontColor = "f7ebe4", MainColor = "1a100d", AccentColor = "8c4a30", BackgroundColor = "170e0c", OutlineColor = "211511", BackgroundTransparency = 0, GroupboxTransparency = 0, ElementTransparency = 0, BackgroundImage = "" },
         },
         ["Vesqer"] = {
             5,
-            { FontColor = "e8e8e8", MainColor = "161616", AccentColor = "a68265", BackgroundColor = "131313", OutlineColor = "1b1b1b", BackgroundTransparency = 0, GroupboxTransparency = 0, BackgroundImage = "" },
+            { FontColor = "e8e8e8", MainColor = "161616", AccentColor = "a68265", BackgroundColor = "131313", OutlineColor = "1b1b1b", BackgroundTransparency = 0, GroupboxTransparency = 0, ElementTransparency = 0, BackgroundImage = "" },
         },
 		["Forest"] = {
             6,
-            { FontColor = "e8f3ec", MainColor = "101a15", AccentColor = "456953", BackgroundColor = "0e1713", OutlineColor = "15211b", BackgroundTransparency = 0, GroupboxTransparency = 0, BackgroundImage = "" },
+            { FontColor = "e8f3ec", MainColor = "101a15", AccentColor = "456953", BackgroundColor = "0e1713", OutlineColor = "15211b", BackgroundTransparency = 0, GroupboxTransparency = 0, ElementTransparency = 0, BackgroundImage = "" },
         },
         ["Chrome"] = {
             7,
-            { FontColor = "c7c7c7", MainColor = "161616", AccentColor = "8a8a8a", BackgroundColor = "161616", OutlineColor = "1b1b1b", BackgroundTransparency = 0, GroupboxTransparency = 0, BackgroundImage = "" },
+            { FontColor = "c7c7c7", MainColor = "161616", AccentColor = "8a8a8a", BackgroundColor = "161616", OutlineColor = "1b1b1b", BackgroundTransparency = 0, GroupboxTransparency = 0, ElementTransparency = 0, BackgroundImage = "" },
         },
         ["Ocean"] = {
             8,
-            { FontColor = "e6f1f7", MainColor = "0d151c", AccentColor = "4e899c", BackgroundColor = "0c131a", OutlineColor = "131c24", BackgroundTransparency = 0, GroupboxTransparency = 0, BackgroundImage = "" },
+            { FontColor = "e6f1f7", MainColor = "0d151c", AccentColor = "4e899c", BackgroundColor = "0c131a", OutlineColor = "131c24", BackgroundTransparency = 0, GroupboxTransparency = 0, ElementTransparency = 0, BackgroundImage = "" },
         },
     }
 }
@@ -295,6 +295,7 @@ local function BuildCurrentThemeData(): {[string]: any}
         BackgroundImage = Library.Options.BackgroundImage.Value,
         BackgroundTransparency = Library.BackgroundTransparency,
         GroupboxTransparency = Library.GroupboxTransparency,
+        ElementTransparency = Library.ElementTransparencyValue,
     }
 
     for _, SchemeIndex in SchemeIndexes do
@@ -622,6 +623,14 @@ function ThemeManager:ApplyThemeData(ThemeData: any): (boolean, string?)
 
     local Library = ThemeManager.Library
 
+    --// Themes saved before ElementTransparency existed had elements follow the groupbox value,
+    --// so reuse it to keep those themes looking the same
+    if ThemeData.ElementTransparency == nil and typeof(ThemeData.GroupboxTransparency) == "number" then
+        local LegacyValue = math.clamp(ThemeData.GroupboxTransparency, 0, 1)
+        Library:SetElementTransparency(LegacyValue)
+        SyncTransparencySlider(Library.Options.ElementTransparency, LegacyValue)
+    end
+
     for Index, Value in ThemeData do
         if Index == "VideoLink" then
             continue
@@ -638,15 +647,17 @@ function ThemeManager:ApplyThemeData(ThemeData: any): (boolean, string?)
             if typeof(Value) ~= "string" then continue end
             ThemeManager.Library:SetBackgroundImage(Value)
 
-        elseif Index == "BackgroundTransparency" or Index == "GroupboxTransparency" then
-            --// Window background / groupbox (+ elements) transparency, 0 = solid, 1 = invisible
+        elseif Index == "BackgroundTransparency" or Index == "GroupboxTransparency" or Index == "ElementTransparency" then
+            --// Window background / groupbox / element transparency, 0 = solid, 1 = invisible
             if typeof(Value) ~= "number" then continue end
             FinalValue = math.clamp(Value, 0, 1)
 
             if Index == "BackgroundTransparency" then
                 Library:SetBackgroundTransparency(FinalValue)
-            else
+            elseif Index == "GroupboxTransparency" then
                 Library:SetGroupboxTransparency(FinalValue)
+            else
+                Library:SetElementTransparency(FinalValue)
             end
 
         elseif table.find(SchemeIndexes, Index) then
@@ -661,7 +672,7 @@ function ThemeManager:ApplyThemeData(ThemeData: any): (boolean, string?)
         end
 
         if Element then
-            if Index == "BackgroundTransparency" or Index == "GroupboxTransparency" then
+            if Index == "BackgroundTransparency" or Index == "GroupboxTransparency" or Index == "ElementTransparency" then
                 SyncTransparencySlider(Element, FinalValue)
             else
                 Element:SetValue(FinalValue)
@@ -1131,6 +1142,7 @@ function ThemeManager:CreateThemeManager(Themesbox: any)
 
     --// Load default
     ThemeManager:LoadDefault()
+    ThemeManager:UpdateContrastWarning()
     ThemeManager.AppliedToTab = true
     RefreshDefaultThemeLabel()
 
