@@ -462,10 +462,11 @@ function SaveManager:SaveJSON(ConfigName)
         transparency = nil,
     }
 
-    --// Window transparency (add "BackgroundTransparency" / "GroupboxTransparency" to the ignore list to skip)
+    --// Window transparency (add "BackgroundTransparency" / "GroupboxTransparency" / "ElementTransparency" to the ignore list to skip)
     CurrentData.transparency = {
         background = if IgnoreIndexes.BackgroundTransparency then nil else Library.BackgroundTransparency,
         groupbox = if IgnoreIndexes.GroupboxTransparency then nil else Library.GroupboxTransparency,
+        element = if IgnoreIndexes.ElementTransparency then nil else Library.ElementTransparencyValue,
     }
 
     if Library.KeybindFrame then
@@ -675,6 +676,13 @@ function SaveManager:LoadJSON(Content: string)
 
             Apply("BackgroundTransparency", TransparencyData.background, Library.SetBackgroundTransparency)
             Apply("GroupboxTransparency", TransparencyData.groupbox, Library.SetGroupboxTransparency)
+
+            --// Configs saved before ElementTransparency existed had elements follow the groupbox value
+            local ElementValue = TransparencyData.element
+            if ElementValue == nil then
+                ElementValue = TransparencyData.groupbox
+            end
+            Apply("ElementTransparency", ElementValue, Library.SetElementTransparency)
         end)
     end
 
