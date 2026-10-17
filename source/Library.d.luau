@@ -1083,8 +1083,8 @@ export type Library = {
     SetElementTransparency: (self: Library, Value: number) -> (),
     SetPanelTransparency: (self: Library, Value: number) -> (),
 
-    -- Background blur: blurs the game world behind the window while it is open, enabled and the
-    -- interface is transparent (any of the three transparency values > 0).
+    -- Background blur: blurs ONLY the area behind the window while it is open, enabled and the
+    -- interface is transparent (any of the three transparency values > 0). Amount is 0 - BlurMaxAmount (100).
     BlurEnabled: boolean,
     BlurAmount: number,
     BlurMaxAmount: number,
