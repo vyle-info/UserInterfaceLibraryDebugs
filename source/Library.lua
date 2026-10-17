@@ -3004,11 +3004,11 @@ function Library:MakeBoxPopOut(Box: any, Options: {
         local Frame = New("Frame", {
             AutomaticSize = Enum.AutomaticSize.Y,
             BackgroundColor3 = "BackgroundColor",
-            BackgroundTransparency = 0.12,
             ClipsDescendants = true,
             Size = UDim2.new(1, 0, 0, 0),
             Parent = BoxHolder,
         })
+        Library:RegisterPanel(Frame, "Groupbox")
         table.insert(
             Library.Corners,
             New("UICorner", {
@@ -3020,6 +3020,10 @@ function Library:MakeBoxPopOut(Box: any, Options: {
 
         PlaceholderHeader = Header:Clone()
         PlaceholderHeader.Parent = Frame
+        local function RegisterPopOutClone(Source: Instance, Clone: Instance)
+        if Library.ElementFrames[Source] then
+           Library.ElementFrames[Clone] = true
+        end
         RegisterPopOutClone(Header, PlaceholderHeader)
         DimPopOutClone(PlaceholderHeader)
 
