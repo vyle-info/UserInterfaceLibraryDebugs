@@ -1500,12 +1500,102 @@ local function ApplyPanelTransparency(Kind, Value)
     end
 end
 
+--// Background blur \\--
+-- Blurs the game world behind the window. It is only active while the window is open, blur is
+-- enabled AND the interface is actually transparent (any of the three transparency values > 0),
+-- so a fully opaque window never pays for it. Everything lives on `Library` (no new locals:
+-- this chunk is close to Luau's local-variable limit).
+Library.BlurEnabled = false
+Library.BlurAmount = 34
+Library.BlurMaxAmount = 56
+Library.BlurEffect = nil
+Library.BlurTween = nil
+
+function Library:IsInterfaceTransparent()
+    return Library.BackgroundTransparency > 0
+        or Library.GroupboxTransparency > 0
+        or Library.ElementTransparencyValue > 0
+end
+
+function Library:GetBlurEffect()
+    if Library.BlurEffect and Library.BlurEffect.Parent then
+        return Library.BlurEffect
+    end
+
+    local Effect = Instance.new("BlurEffect")
+    Effect.Name = "MardenBlur"
+    Effect.Size = 0
+    pcall(function()
+        Effect.Parent = cloneref(game:GetService("Lighting"))
+    end)
+
+    Library.BlurEffect = Effect
+    return Effect
+end
+
+function Library:UpdateBlur()
+    if Library.BlurTween then
+        Library.BlurTween:Cancel()
+        Library.BlurTween = nil
+    end
+
+    --// Unloading: remove the effect immediately
+    if Library.Unloaded then
+        if Library.BlurEffect then
+            Library.BlurEffect:Destroy()
+            Library.BlurEffect = nil
+        end
+        return
+    end
+
+    local Target = 0
+    if Library.BlurEnabled and Library.Toggled and Library:IsInterfaceTransparent() then
+        Target = Library.BlurAmount
+    end
+
+    if Target <= 0 and not Library.BlurEffect then
+        return
+    end
+
+    local Effect = Library:GetBlurEffect()
+    local Tween = TweenService:Create(Effect, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        Size = Target,
+    })
+
+    Tween.Completed:Connect(function(State)
+        --// Fully faded out: don't leave an idle effect sitting in Lighting
+        if State == Enum.PlaybackState.Completed and Target <= 0 and Library.BlurEffect == Effect then
+            Effect:Destroy()
+            Library.BlurEffect = nil
+        end
+    end)
+
+    Library.BlurTween = Tween
+    Tween:Play()
+end
+
+function Library:SetBlur(Enabled: boolean)
+    Library.BlurEnabled = Enabled == true
+    Library:UpdateBlur()
+end
+
+function Library:SetBlurAmount(Amount: number | string)
+    Amount = tonumber(Amount)
+    if not Amount then
+        return
+    end
+
+    Library.BlurAmount = math.clamp(Amount, 0, Library.BlurMaxAmount)
+    Library:UpdateBlur()
+end
+
 -- MainFrame itself is always fully transparent now. Every region of the window
 -- (top bar, sidebar, container, footer) paints its OWN background, so nothing is
 -- stacked on top of another layer and they all share one transparency value.
 function Library:SetBackgroundTransparency(Value)
     Library.BackgroundTransparency = Value
     ApplyPanelTransparency("Background", Value)
+    Library:UpdateBlur()
 end
 
 --// Elements (buttons, inputs, dropdowns, sliders, toggles, tab buttons, search bar...) \--
@@ -1569,12 +1659,15 @@ function Library:SetGroupboxTransparency(Value)
     for Popup in Library.PopupFrames do
         Popup.BackgroundTransparency = Library:PopupTransparency()
     end
+
+    Library:UpdateBlur()
 end
 
 -- Elements only (buttons, inputs, dropdowns, sliders, toggles, tab buttons, outlines...)
 function Library:SetElementTransparency(Value)
     ApplyElementTransparency(Value) -- must run before the stored value changes
     Library.ElementTransparencyValue = Value
+    Library:UpdateBlur()
 end
 
 -- Backwards compatible: sets all three at once
@@ -2069,11 +2162,24 @@ end
 
 local OnlineFetchIcons, OnlineIcons = pcall(function()
     return (loadstring(
-        game:HttpGet("https://raw.githubusercontent.com/notpoiu/lucide-roblox-direct/refs/heads/main/source.lua")
+        game:HttpGet("https://raw.githubusercontent.com/notpoiu/Molto/refs/heads/main/source.lua")
     ) :: () -> IconModule)()
 end)
-if OnlineFetchIcons and OnlineIcons then
-    Library:SetIconModule(OnlineIcons)
+do
+    if OnlineFetchIcons and OnlineIcons then
+        OnlineIcons.SetProvider("lucide")
+        Library:SetIconModule(OnlineIcons)
+    else
+        OnlineFetchIcons, OnlineIcons = pcall(function()
+            return (loadstring(
+                game:HttpGet("https://raw.githubusercontent.com/notpoiu/lucide-roblox-direct/refs/heads/main/source.lua")
+            ) :: () -> IconModule)()
+        end)
+        
+        if OnlineFetchIcons and OnlineIcons then
+            Library:SetIconModule(OnlineIcons)
+        end
+    end
 end
 
 --// Lib Functions \\--
@@ -10647,6 +10753,13 @@ function Library:SetFont(FontFace)
     Library.Scheme.Font = FontFace
     Library:UpdateColorsUsingRegistry()
 
+    for _, Label in Labels do
+        if Label.DoesWrap then
+            Label:Display()
+            Label.Parent:Resize()
+        end
+    end
+
     if Library.Window and Library.Window.RefreshTitleSize then
         Library.Window:RefreshTitleSize()
     end
@@ -14564,6 +14677,8 @@ function Library:CreateWindow(WindowInfo)
             Library.Toggled = not Library.Toggled
         end
 
+        Library:UpdateBlur()
+
         if Library.Animations and Library.Animations.ToggleWindow == true then
             local FadeTime = Library.WindowAnimationInfo.Time
             Fading = true
@@ -15550,7 +15665,7 @@ Library:GiveSignal(Teams.ChildRemoved:Connect(OnTeamChange))
 
 function Library:Unload()
     Library.Unloaded = true
-
+    Library:UpdateBlur() -- destroys the blur effect
     --// Disconnect connections
     for Index = #Library.Signals, 1, -1 do
         local Connection = table.remove(Library.Signals, Index)
