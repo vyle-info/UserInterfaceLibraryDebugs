@@ -67,27 +67,27 @@ local ThemeManager = {
         },
         ["Dracula"] = {
             3,
-            { FontColor = "f8eefb", ElementColor = "f8eefb", MainColor = "211a28", AccentColor = "ee9bd8", BackgroundColor = "1f1926", OutlineColor = "2d2238", BackgroundTransparency = 0, GroupboxTransparency = 0, ElementTransparency = 0, BackgroundImage = "" },
+            { FontColor = "f8eefb", ElementColor = "ffffff", MainColor = "211a28", AccentColor = "ee9bd8", BackgroundColor = "1f1926", OutlineColor = "2d2238", BackgroundTransparency = 0, GroupboxTransparency = 0, ElementTransparency = 0, BackgroundImage = "" },
         },
         ["Ember"] = {
             4,
-            { FontColor = "f7ebe4", ElementColor = "f7ebe4", MainColor = "1a100d", AccentColor = "8c4a30", BackgroundColor = "170e0c", OutlineColor = "211511", BackgroundTransparency = 0, GroupboxTransparency = 0, ElementTransparency = 0, BackgroundImage = "" },
+            { FontColor = "f7ebe4", ElementColor = "ffffff", MainColor = "1a100d", AccentColor = "8c4a30", BackgroundColor = "170e0c", OutlineColor = "211511", BackgroundTransparency = 0, GroupboxTransparency = 0, ElementTransparency = 0, BackgroundImage = "" },
         },
         ["Vesqer"] = {
             5,
-            { FontColor = "e8e8e8", ElementColor = "e8e8e8", MainColor = "161616", AccentColor = "a68265", BackgroundColor = "131313", OutlineColor = "1b1b1b", BackgroundTransparency = 0, GroupboxTransparency = 0, ElementTransparency = 0, BackgroundImage = "" },
+            { FontColor = "e8e8e8", ElementColor = "ffffff", MainColor = "161616", AccentColor = "a68265", BackgroundColor = "131313", OutlineColor = "1b1b1b", BackgroundTransparency = 0, GroupboxTransparency = 0, ElementTransparency = 0, BackgroundImage = "" },
         },
 		["Forest"] = {
             6,
-            { FontColor = "e8f3ec", ElementColor = "e8f3ec", MainColor = "101a15", AccentColor = "456953", BackgroundColor = "0e1713", OutlineColor = "15211b", BackgroundTransparency = 0, GroupboxTransparency = 0, ElementTransparency = 0, BackgroundImage = "" },
+            { FontColor = "e8f3ec", ElementColor = "ffffff", MainColor = "101a15", AccentColor = "456953", BackgroundColor = "0e1713", OutlineColor = "15211b", BackgroundTransparency = 0, GroupboxTransparency = 0, ElementTransparency = 0, BackgroundImage = "" },
         },
         ["Chrome"] = {
             7,
-            { FontColor = "c7c7c7", ElementColor = "c7c7c7", MainColor = "161616", AccentColor = "8a8a8a", BackgroundColor = "161616", OutlineColor = "1b1b1b", BackgroundTransparency = 0, GroupboxTransparency = 0, ElementTransparency = 0, BackgroundImage = "" },
+            { FontColor = "c7c7c7", ElementColor = "ffffff", MainColor = "161616", AccentColor = "8a8a8a", BackgroundColor = "161616", OutlineColor = "1b1b1b", BackgroundTransparency = 0, GroupboxTransparency = 0, ElementTransparency = 0, BackgroundImage = "" },
         },
         ["Ocean"] = {
             8,
-            { FontColor = "e6f1f7", ElementColor = "e6f1f7", MainColor = "0d151c", AccentColor = "4e899c", BackgroundColor = "0c131a", OutlineColor = "131c24", BackgroundTransparency = 0, GroupboxTransparency = 0, ElementTransparency = 0, BackgroundImage = "" },
+            { FontColor = "e6f1f7", ElementColor = "ffffff", MainColor = "0d151c", AccentColor = "4e899c", BackgroundColor = "0c131a", OutlineColor = "131c24", BackgroundTransparency = 0, GroupboxTransparency = 0, ElementTransparency = 0, BackgroundImage = "" },
         },
     }
 }
@@ -147,7 +147,7 @@ local function IsValidThemeData(Data: any): boolean
 
     --// Require the color scheme to be present; font/background image are optional and fall back to current values
     for _, SchemeIndex in SchemeIndexes do
-        if SchemeIndex == "ElementColor" then continue end --// Optional: older themes don't have it
+        if SchemeIndex == "ElementColor" then continue end
         if typeof(Data[SchemeIndex]) ~= "string" then
             return false
         end
@@ -1141,8 +1141,8 @@ function ThemeManager:CreateThemeManager(Themesbox: any)
     MainColor:OnChanged(UpdateTheme)
     AccentColor:OnChanged(UpdateTheme)
     OutlineColor:OnChanged(UpdateTheme)
+	ElementColor:OnChanged(UpdateTheme)
     FontColor:OnChanged(UpdateTheme)
-    ElementColor:OnChanged(UpdateTheme)
     FontFace:OnChanged(function(Value) ThemeManager.Library:SetFont(Enum.Font[Value]) end)
     BackgroundImage:OnChanged(function(Value) ThemeManager.Library:SetBackgroundImage(Value) end)
 
