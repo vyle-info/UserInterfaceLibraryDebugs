@@ -6,8 +6,8 @@ export type Scheme = {
     MainColor: Color3,
     AccentColor: Color3,
     OutlineColor: Color3,
-    FontColor: Color3,
     ElementColor: Color3,
+    FontColor: Color3,
     Font: Font,
     RedColor: Color3,
     DestructiveColor: Color3,
@@ -1082,6 +1082,16 @@ export type Library = {
     SetGroupboxTransparency: (self: Library, Value: number) -> (),
     SetElementTransparency: (self: Library, Value: number) -> (),
     SetPanelTransparency: (self: Library, Value: number) -> (),
+
+    -- Background blur: blurs the game world behind the window while it is open, enabled and the
+    -- interface is transparent (any of the three transparency values > 0).
+    BlurEnabled: boolean,
+    BlurAmount: number,
+    BlurMaxAmount: number,
+    SetBlur: (self: Library, Enabled: boolean) -> (),
+    SetBlurAmount: (self: Library, Amount: number | string) -> (),
+    UpdateBlur: (self: Library) -> (),
+    IsInterfaceTransparent: (self: Library) -> boolean,
     ElementTransparencyValue: number,
 
     -- Elements (buttons, inputs, dropdowns, sliders, toggles, tab buttons, outlines, keybinds,
