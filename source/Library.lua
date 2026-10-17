@@ -1501,14 +1501,20 @@ local function ApplyPanelTransparency(Kind, Value)
 end
 
 --// Background blur \\--
--- Blurs the game world behind the window. It is only active while the window is open, blur is
--- enabled AND the interface is actually transparent (any of the three transparency values > 0),
--- so a fully opaque window never pays for it. Everything lives on `Library` (no new locals:
--- this chunk is close to Luau's local-variable limit).
+-- Blurs ONLY the area of the screen behind the window (not the whole game view). A thin glass part
+-- is pinned to the window's on-screen rectangle right in front of the camera and a near-field
+-- DepthOfFieldEffect blurs it, so nothing outside the window changes. It is only active while the
+-- window is open, blur is enabled AND the interface is actually transparent (any of the three
+-- transparency values > 0). Everything lives on `Library` (no new locals: this chunk is close to
+-- Luau's local-variable limit).
 Library.BlurEnabled = false
-Library.BlurAmount = 34
-Library.BlurMaxAmount = 56
-Library.BlurEffect = nil
+Library.BlurAmount = 34 -- 0 - BlurMaxAmount
+Library.BlurMaxAmount = 100
+Library.BlurDistance = 0.001 -- how far in front of the camera the glass sits (studs)
+Library.BlurPart = nil
+Library.BlurMesh = nil
+Library.BlurDepth = nil
+Library.BlurConnection = nil
 Library.BlurTween = nil
 
 function Library:IsInterfaceTransparent()
@@ -1517,20 +1523,120 @@ function Library:IsInterfaceTransparent()
         or Library.ElementTransparencyValue > 0
 end
 
-function Library:GetBlurEffect()
-    if Library.BlurEffect and Library.BlurEffect.Parent then
-        return Library.BlurEffect
+function Library:DestroyBlur()
+    if Library.BlurTween then
+        Library.BlurTween:Cancel()
+        Library.BlurTween = nil
     end
 
-    local Effect = Instance.new("BlurEffect")
-    Effect.Name = "MardenBlur"
-    Effect.Size = 0
+    if Library.BlurConnection then
+        Library.BlurConnection:Disconnect()
+        Library.BlurConnection = nil
+    end
+
+    if Library.BlurPart then
+        Library.BlurPart:Destroy()
+        Library.BlurPart = nil
+        Library.BlurMesh = nil
+    end
+
+    if Library.BlurDepth then
+        Library.BlurDepth:Destroy()
+        Library.BlurDepth = nil
+    end
+end
+
+-- Keeps the glass part exactly over the window, every frame (dragging / resizing / camera movement)
+function Library:UpdateBlurPart()
+    local Part, Mesh = Library.BlurPart, Library.BlurMesh
+    local Camera = workspace.CurrentCamera
+    local Target = Library.Window and Library.Window.MainFrame
+
+    if not (Part and Mesh and Camera and Target) then
+        return
+    end
+
+    if Part.Parent ~= Camera then
+        Part.Parent = Camera
+    end
+
+    if not Target.Visible then
+        Part.Transparency = 1
+        return
+    end
+
+    local Position, Size = Target.AbsolutePosition, Target.AbsoluteSize
+    local TopLeft = Camera:ViewportPointToRay(Position.X, Position.Y)
+    local BottomRight = Camera:ViewportPointToRay(Position.X + Size.X, Position.Y + Size.Y)
+
+    local TopLeft3D = TopLeft.Origin + TopLeft.Direction * Library.BlurDistance
+    local BottomRight3D = BottomRight.Origin + BottomRight.Direction * Library.BlurDistance
+
+    local CameraCFrame = Camera.CFrame
+    local Delta = CameraCFrame:PointToObjectSpace(BottomRight3D) - CameraCFrame:PointToObjectSpace(TopLeft3D)
+
+    Part.Transparency = 0.98
+    Part.CFrame = CFrame.fromMatrix(
+        (TopLeft3D + BottomRight3D) / 2,
+        CameraCFrame.XVector,
+        CameraCFrame.YVector,
+        CameraCFrame.ZVector
+    )
+    Mesh.Scale = Vector3.new(math.abs(Delta.X), math.abs(Delta.Y), 0)
+end
+
+function Library:CreateBlur()
+    if Library.BlurPart and Library.BlurPart.Parent and Library.BlurDepth and Library.BlurDepth.Parent then
+        return true
+    end
+
+    local Camera = workspace.CurrentCamera
+    if not Camera then
+        return false
+    end
+
+    Library:DestroyBlur()
+
+    local Part = Instance.new("Part")
+    Part.Name = "MardenBlurGlass"
+    Part.Color = Color3.new(0, 0, 0)
+    Part.Material = Enum.Material.Glass
+    Part.Size = Vector3.new(1, 1, 0)
+    Part.Transparency = 1
+    Part.Anchored = true
+    Part.CanCollide = false
+    Part.CanTouch = false
+    Part.CanQuery = false
+    Part.Locked = true
+    Part.CastShadow = false
+
+    local Mesh = Instance.new("SpecialMesh")
+    Mesh.MeshType = Enum.MeshType.Brick
+    Mesh.Offset = Vector3.new(0, 0, -0.000001)
+    Mesh.Parent = Part
+    Part.Parent = Camera
+
+    -- Only things closer than the focus distance get blurred: the glass part, nothing else
+    local Depth = Instance.new("DepthOfFieldEffect")
+    Depth.Name = "MardenBlurDepth"
+    Depth.FarIntensity = 0
+    Depth.NearIntensity = 0
+    Depth.FocusDistance = 0.05
+    Depth.InFocusRadius = 0.1
     pcall(function()
-        Effect.Parent = cloneref(game:GetService("Lighting"))
+        Depth.Parent = cloneref(game:GetService("Lighting"))
     end)
 
-    Library.BlurEffect = Effect
-    return Effect
+    Library.BlurPart = Part
+    Library.BlurMesh = Mesh
+    Library.BlurDepth = Depth
+
+    Library:UpdateBlurPart()
+    Library.BlurConnection = RunService.RenderStepped:Connect(function()
+        Library:UpdateBlurPart()
+    end)
+
+    return true
 end
 
 function Library:UpdateBlur()
@@ -1539,34 +1645,34 @@ function Library:UpdateBlur()
         Library.BlurTween = nil
     end
 
-    --// Unloading: remove the effect immediately
+    --// Unloading: remove everything immediately
     if Library.Unloaded then
-        if Library.BlurEffect then
-            Library.BlurEffect:Destroy()
-            Library.BlurEffect = nil
-        end
+        Library:DestroyBlur()
         return
     end
 
-    local Target = 0
-    if Library.BlurEnabled and Library.Toggled and Library:IsInterfaceTransparent() then
-        Target = Library.BlurAmount
+    local Intensity = 0
+    if Library.BlurEnabled and Library.Toggled and Library.Window and Library:IsInterfaceTransparent() then
+        Intensity = math.clamp(Library.BlurAmount / Library.BlurMaxAmount, 0, 1)
     end
 
-    if Target <= 0 and not Library.BlurEffect then
+    if Intensity <= 0 and not Library.BlurDepth then
         return
     end
 
-    local Effect = Library:GetBlurEffect()
-    local Tween = TweenService:Create(Effect, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        Size = Target,
+    if not Library:CreateBlur() then
+        return
+    end
+
+    local Depth = Library.BlurDepth
+    local Tween = TweenService:Create(Depth, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        NearIntensity = Intensity,
     })
 
     Tween.Completed:Connect(function(State)
-        --// Fully faded out: don't leave an idle effect sitting in Lighting
-        if State == Enum.PlaybackState.Completed and Target <= 0 and Library.BlurEffect == Effect then
-            Effect:Destroy()
-            Library.BlurEffect = nil
+        --// Fully faded out: don't leave an idle part / effect around
+        if State == Enum.PlaybackState.Completed and Intensity <= 0 and Library.BlurDepth == Depth then
+            Library:DestroyBlur()
         end
     end)
 
@@ -3004,11 +3110,11 @@ function Library:MakeBoxPopOut(Box: any, Options: {
         local Frame = New("Frame", {
             AutomaticSize = Enum.AutomaticSize.Y,
             BackgroundColor3 = "BackgroundColor",
+            BackgroundTransparency = 0.12,
             ClipsDescendants = true,
             Size = UDim2.new(1, 0, 0, 0),
             Parent = BoxHolder,
         })
-        Library:RegisterPanel(Frame, "Groupbox")
         table.insert(
             Library.Corners,
             New("UICorner", {
@@ -3020,10 +3126,6 @@ function Library:MakeBoxPopOut(Box: any, Options: {
 
         PlaceholderHeader = Header:Clone()
         PlaceholderHeader.Parent = Frame
-        local function RegisterPopOutClone(Source: Instance, Clone: Instance)
-        if Library.ElementFrames[Source] then
-           Library.ElementFrames[Clone] = true
-        end
         RegisterPopOutClone(Header, PlaceholderHeader)
         DimPopOutClone(PlaceholderHeader)
 
@@ -15669,7 +15771,7 @@ Library:GiveSignal(Teams.ChildRemoved:Connect(OnTeamChange))
 
 function Library:Unload()
     Library.Unloaded = true
-    Library:UpdateBlur() -- destroys the blur effect
+    Library:UpdateBlur() -- destroys the blur part / effect
     --// Disconnect connections
     for Index = #Library.Signals, 1, -1 do
         local Connection = table.remove(Library.Signals, Index)
