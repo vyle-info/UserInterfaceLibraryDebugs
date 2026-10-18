@@ -3,6 +3,7 @@ local cloneref = (cloneref or clonereference or function(instance: any)
 end)
 local CoreGui: CoreGui = cloneref(game:GetService("CoreGui"))
 local GuiService: GuiService = cloneref(game:GetService("GuiService"))
+local Lighting: Lighting = cloneref(game:GetService("Lighting"))
 local Players: Players = cloneref(game:GetService("Players"))
 local RunService: RunService = cloneref(game:GetService("RunService"))
 local SoundService: SoundService = cloneref(game:GetService("SoundService"))
@@ -1500,208 +1501,12 @@ local function ApplyPanelTransparency(Kind, Value)
     end
 end
 
---// Background blur \\--
--- Blurs ONLY the area of the screen behind the window (not the whole game view). A thin glass part
--- is pinned to the window's on-screen rectangle right in front of the camera and a near-field
--- DepthOfFieldEffect blurs it, so nothing outside the window changes. It is only active while the
--- window is open, blur is enabled AND the interface is actually transparent (any of the three
--- transparency values > 0). Everything lives on `Library` (no new locals: this chunk is close to
--- Luau's local-variable limit).
-Library.BlurEnabled = false
-Library.BlurAmount = 34 -- 0 - BlurMaxAmount
-Library.BlurMaxAmount = 100
-Library.BlurDistance = 0.001 -- how far in front of the camera the glass sits (studs)
-Library.BlurPart = nil
-Library.BlurMesh = nil
-Library.BlurDepth = nil
-Library.BlurConnection = nil
-Library.BlurTween = nil
-
-function Library:IsInterfaceTransparent()
-    return Library.BackgroundTransparency > 0
-        or Library.GroupboxTransparency > 0
-        or Library.ElementTransparencyValue > 0
-end
-
-function Library:DestroyBlur()
-    if Library.BlurTween then
-        Library.BlurTween:Cancel()
-        Library.BlurTween = nil
-    end
-
-    if Library.BlurConnection then
-        Library.BlurConnection:Disconnect()
-        Library.BlurConnection = nil
-    end
-
-    if Library.BlurPart then
-        Library.BlurPart:Destroy()
-        Library.BlurPart = nil
-        Library.BlurMesh = nil
-    end
-
-    if Library.BlurDepth then
-        Library.BlurDepth:Destroy()
-        Library.BlurDepth = nil
-    end
-end
-
--- Keeps the glass part exactly over the window, every frame (dragging / resizing / camera movement)
-function Library:UpdateBlurPart()
-    local Part, Mesh = Library.BlurPart, Library.BlurMesh
-    local Camera = workspace.CurrentCamera
-    local Target = Library.Window and Library.Window.MainFrame
-
-    if not (Part and Mesh and Camera and Target) then
-        return
-    end
-
-    if Part.Parent ~= Camera then
-        Part.Parent = Camera
-    end
-
-    if not Target.Visible then
-        Part.Transparency = 1
-        return
-    end
-
-    local Position, Size = Target.AbsolutePosition, Target.AbsoluteSize
-    local TopLeft = Camera:ViewportPointToRay(Position.X, Position.Y)
-    local BottomRight = Camera:ViewportPointToRay(Position.X + Size.X, Position.Y + Size.Y)
-
-    local TopLeft3D = TopLeft.Origin + TopLeft.Direction * Library.BlurDistance
-    local BottomRight3D = BottomRight.Origin + BottomRight.Direction * Library.BlurDistance
-
-    local CameraCFrame = Camera.CFrame
-    local Delta = CameraCFrame:PointToObjectSpace(BottomRight3D) - CameraCFrame:PointToObjectSpace(TopLeft3D)
-
-    Part.Transparency = 0.98
-    Part.CFrame = CFrame.fromMatrix(
-        (TopLeft3D + BottomRight3D) / 2,
-        CameraCFrame.XVector,
-        CameraCFrame.YVector,
-        CameraCFrame.ZVector
-    )
-    Mesh.Scale = Vector3.new(math.abs(Delta.X), math.abs(Delta.Y), 0)
-end
-
-function Library:CreateBlur()
-    if Library.BlurPart and Library.BlurPart.Parent and Library.BlurDepth and Library.BlurDepth.Parent then
-        return true
-    end
-
-    local Camera = workspace.CurrentCamera
-    if not Camera then
-        return false
-    end
-
-    Library:DestroyBlur()
-
-    local Part = Instance.new("Part")
-    Part.Name = "MardenBlurGlass"
-    Part.Color = Color3.new(0, 0, 0)
-    Part.Material = Enum.Material.Glass
-    Part.Size = Vector3.new(1, 1, 0)
-    Part.Transparency = 1
-    Part.Anchored = true
-    Part.CanCollide = false
-    Part.CanTouch = false
-    Part.CanQuery = false
-    Part.Locked = true
-    Part.CastShadow = false
-
-    local Mesh = Instance.new("SpecialMesh")
-    Mesh.MeshType = Enum.MeshType.Brick
-    Mesh.Offset = Vector3.new(0, 0, -0.000001)
-    Mesh.Parent = Part
-    Part.Parent = Camera
-
-    -- Only things closer than the focus distance get blurred: the glass part, nothing else
-    local Depth = Instance.new("DepthOfFieldEffect")
-    Depth.Name = "MardenBlurDepth"
-    Depth.FarIntensity = 0
-    Depth.NearIntensity = 0
-    Depth.FocusDistance = 0.05
-    Depth.InFocusRadius = 0.1
-    pcall(function()
-        Depth.Parent = cloneref(game:GetService("Lighting"))
-    end)
-
-    Library.BlurPart = Part
-    Library.BlurMesh = Mesh
-    Library.BlurDepth = Depth
-
-    Library:UpdateBlurPart()
-    Library.BlurConnection = RunService.RenderStepped:Connect(function()
-        Library:UpdateBlurPart()
-    end)
-
-    return true
-end
-
-function Library:UpdateBlur()
-    if Library.BlurTween then
-        Library.BlurTween:Cancel()
-        Library.BlurTween = nil
-    end
-
-    --// Unloading: remove everything immediately
-    if Library.Unloaded then
-        Library:DestroyBlur()
-        return
-    end
-
-    local Intensity = 0
-    if Library.BlurEnabled and Library.Toggled and Library.Window and Library:IsInterfaceTransparent() then
-        Intensity = math.clamp(Library.BlurAmount / Library.BlurMaxAmount, 0, 1)
-    end
-
-    if Intensity <= 0 and not Library.BlurDepth then
-        return
-    end
-
-    if not Library:CreateBlur() then
-        return
-    end
-
-    local Depth = Library.BlurDepth
-    local Tween = TweenService:Create(Depth, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        NearIntensity = Intensity,
-    })
-
-    Tween.Completed:Connect(function(State)
-        --// Fully faded out: don't leave an idle part / effect around
-        if State == Enum.PlaybackState.Completed and Intensity <= 0 and Library.BlurDepth == Depth then
-            Library:DestroyBlur()
-        end
-    end)
-
-    Library.BlurTween = Tween
-    Tween:Play()
-end
-
-function Library:SetBlur(Enabled: boolean)
-    Library.BlurEnabled = Enabled == true
-    Library:UpdateBlur()
-end
-
-function Library:SetBlurAmount(Amount: number | string)
-    Amount = tonumber(Amount)
-    if not Amount then
-        return
-    end
-
-    Library.BlurAmount = math.clamp(Amount, 0, Library.BlurMaxAmount)
-    Library:UpdateBlur()
-end
-
 -- MainFrame itself is always fully transparent now. Every region of the window
 -- (top bar, sidebar, container, footer) paints its OWN background, so nothing is
 -- stacked on top of another layer and they all share one transparency value.
 function Library:SetBackgroundTransparency(Value)
     Library.BackgroundTransparency = Value
     ApplyPanelTransparency("Background", Value)
-    Library:UpdateBlur()
 end
 
 --// Elements (buttons, inputs, dropdowns, sliders, toggles, tab buttons, search bar...) \--
@@ -1765,15 +1570,12 @@ function Library:SetGroupboxTransparency(Value)
     for Popup in Library.PopupFrames do
         Popup.BackgroundTransparency = Library:PopupTransparency()
     end
-
-    Library:UpdateBlur()
 end
 
 -- Elements only (buttons, inputs, dropdowns, sliders, toggles, tab buttons, outlines...)
 function Library:SetElementTransparency(Value)
     ApplyElementTransparency(Value) -- must run before the stored value changes
     Library.ElementTransparencyValue = Value
-    Library:UpdateBlur()
 end
 
 -- Backwards compatible: sets all three at once
@@ -1781,6 +1583,308 @@ function Library:SetPanelTransparency(Value)
     Library:SetBackgroundTransparency(Value)
     Library:SetGroupboxTransparency(Value)
     Library:SetElementTransparency(Value)
+end
+
+--// Acrylic Blur \\--
+-- Ported from https://github.com/7kayoh/Acrylic (MIT, Copyright (c) 2023 7kayoh, originally from
+-- richie0866/remote-spy) without the Fusion / script.Parent dependencies. See assets/licenses/Acrylic.LICENSE.
+--
+-- A DepthOfFieldEffect that only blurs what is NEAR the camera (NearIntensity > 0, FarIntensity = 0) is paired
+-- with an almost invisible Glass part sitting right in front of the camera. The part is resized every frame to
+-- cover the same screen rectangle as a registered GuiObject, so the game behind that GuiObject is blurred while
+-- the UI drawn on top of it stays sharp.
+--
+-- A region only blurs while ALL of these are true:
+--   * Library.BlurEnabled is true and Library.BlurAmount > 0
+--   * the GuiObject is actually visible (it and every parent, and its ScreenGui is enabled)
+--   * the transparency its panel follows (see RegisterBlur's Kind) is above 0, so fully opaque UI never blurs
+Library.BlurEnabled = false
+Library.BlurAmount = 34 -- 0-100, maps to DepthOfFieldEffect.NearIntensity (0-1)
+
+local BlurDistance = 0.001 -- studs in front of the camera
+local BlurTransparencyKeys = {
+    Background = "BackgroundTransparency",
+    Groupbox = "GroupboxTransparency",
+    Element = "ElementTransparencyValue",
+}
+local Blur = {
+    Regions = {}, -- [GuiObject] = { Kind, Part, Mesh, CFrame, Scale }
+    Effect = nil,
+    DisabledEffects = {}, -- other DepthOfFieldEffects that were switched off while the blur is showing
+    Applied = false,
+    Bound = false,
+    BindName = "LibraryAcrylicBlur",
+}
+
+local function CreateBlurPart()
+    local Part = Instance.new("Part")
+    Part.Name = "UIBlur"
+    Part.Color = Color3.new(0, 0, 0)
+    Part.Material = Enum.Material.Glass
+    Part.Size = Vector3.new(1, 1, 0)
+    Part.Transparency = 0.999
+    Part.Anchored = true
+    Part.CanCollide = false
+    Part.CanQuery = false -- keep it out of the game's raycasts / Mouse.Target
+    Part.CanTouch = false
+    Part.Locked = true
+    Part.CastShadow = false
+
+    local Mesh = Instance.new("SpecialMesh")
+    Mesh.MeshType = Enum.MeshType.Brick
+    Mesh.Offset = Vector3.new(0, 0, -0.000001)
+    Mesh.Parent = Part
+
+    return Part, Mesh
+end
+
+-- Returns the ScreenGui the object is shown in, or nil when it (or any parent / the ScreenGui) is hidden
+local function GetVisibleScreenGui(Object: Instance): ScreenGui?
+    local Current: Instance? = Object
+
+    while Current do
+        if Current:IsA("GuiObject") then
+            if not Current.Visible then
+                return nil
+            end
+        elseif Current:IsA("ScreenGui") then
+            return if Current.Enabled then Current else nil
+        end
+
+        Current = Current.Parent
+    end
+
+    return nil
+end
+
+-- Other DepthOfFieldEffects would fight with ours, so park them while the blur is showing and put them back after
+local function ApplyBlurEffect(Applied: boolean)
+    if Blur.Applied == Applied then
+        return
+    end
+    Blur.Applied = Applied
+
+    if Applied then
+        if not Blur.Effect then
+            local Effect = Instance.new("DepthOfFieldEffect")
+            Effect.Name = "UIBlur"
+            Effect.FarIntensity = 0
+            Effect.FocusDistance = 0.05
+            Effect.InFocusRadius = 0.1
+            Effect.NearIntensity = 0
+            Blur.Effect = Effect
+        end
+
+        table.clear(Blur.DisabledEffects)
+        for _, Container in { Lighting, workspace.CurrentCamera } do
+            for _, Child in Container:GetChildren() do
+                if Child:IsA("DepthOfFieldEffect") and Child ~= Blur.Effect and Child.Enabled then
+                    Blur.DisabledEffects[Child] = true
+                    Child.Enabled = false
+                end
+            end
+        end
+
+        Blur.Effect.Parent = Lighting
+    else
+        if Blur.Effect then
+            Blur.Effect.Parent = nil
+        end
+
+        for Effect in Blur.DisabledEffects do
+            if Effect.Parent then
+                Effect.Enabled = true
+            end
+        end
+        table.clear(Blur.DisabledEffects)
+    end
+end
+
+-- ScreenPointToRay adds the GUI (top bar) inset itself, which matches the AbsolutePosition of a normal ScreenGui.
+-- A ScreenGui with IgnoreGuiInset has no inset, so it needs ViewportPointToRay instead.
+--
+-- The part is a flat quad facing the camera, so every corner has to sit on the SAME plane BlurDistance in front of
+-- the camera (not the same distance along its own ray). Otherwise the quad would come out smaller than the UI and
+-- off-center for UI that is far from the middle of the screen.
+local function BlurPointToWorld(Camera: Camera, CameraCFrame: CFrame, IgnoreInset: boolean, Point: Vector2): Vector3
+    local Ray = if IgnoreInset
+        then Camera:ViewportPointToRay(Point.X, Point.Y)
+        else Camera:ScreenPointToRay(Point.X, Point.Y)
+
+    local Depth = -Ray.Direction:Dot(CameraCFrame.ZVector) -- how much of the ray points straight ahead of the camera
+    return Ray.Origin + Ray.Direction * (BlurDistance / math.max(Depth, 0.05))
+end
+
+local function StepBlur()
+    if Library.Unloaded then
+        return
+    end
+
+    local Camera = workspace.CurrentCamera
+    local Amount = math.clamp(Library.BlurAmount, 0, 100)
+    local AnyActive = false
+
+    -- The blurred rectangle is shrunk a little so the soft edge of the blur doesn't spill past the border of the UI.
+    -- (8px at a 0px tall viewport up to 56px at 2560px tall, split over both sides; same as Acrylic's getOffset())
+    local BaseInset = if Camera then (8 + Camera.ViewportSize.Y * 48 / 2560) / 2 else 0
+
+    for Object, Region in Blur.Regions do
+        local Part = Region.Part
+        local Gui = nil
+
+        if Camera and Amount > 0 and Library[BlurTransparencyKeys[Region.Kind]] > 0 then
+            Gui = GetVisibleScreenGui(Object)
+        end
+
+        local Size = Object.AbsoluteSize
+        if not Gui or Size.X < 1 or Size.Y < 1 then
+            if Part.Parent then
+                Part.Parent = nil
+            end
+            continue
+        end
+
+        AnyActive = true
+
+        -- small panels (watermark, keybind list) can't give up the full inset
+        local Inset = math.min(BaseInset, math.min(Size.X, Size.Y) * 0.25)
+        local Position = Object.AbsolutePosition
+        local TopLeft = Position + Vector2.new(Inset, Inset)
+        local BottomRight = Position + Size - Vector2.new(Inset, Inset)
+        local TopRight = Vector2.new(BottomRight.X, TopLeft.Y)
+
+        local CameraCFrame = Camera.CFrame
+        local IgnoreInset = Gui.IgnoreGuiInset
+        local TopLeft3D = BlurPointToWorld(Camera, CameraCFrame, IgnoreInset, TopLeft)
+        local TopRight3D = BlurPointToWorld(Camera, CameraCFrame, IgnoreInset, TopRight)
+        local BottomRight3D = BlurPointToWorld(Camera, CameraCFrame, IgnoreInset, BottomRight)
+
+        local NewCFrame = CFrame.fromMatrix(
+            (TopLeft3D + BottomRight3D) / 2,
+            CameraCFrame.XVector,
+            CameraCFrame.YVector,
+            CameraCFrame.ZVector
+        )
+        local NewScale = Vector3.new((TopRight3D - TopLeft3D).Magnitude, (TopRight3D - BottomRight3D).Magnitude, 0)
+
+        if Region.CFrame ~= NewCFrame then
+            Region.CFrame = NewCFrame
+            Part.CFrame = NewCFrame
+        end
+        if Region.Scale ~= NewScale then
+            Region.Scale = NewScale
+            Region.Mesh.Scale = NewScale
+        end
+        if Part.Parent ~= Camera then
+            Part.Parent = Camera -- also re-parents when the game swaps its CurrentCamera
+        end
+    end
+
+    ApplyBlurEffect(AnyActive)
+    if AnyActive then
+        Blur.Effect.NearIntensity = Amount / 100
+    end
+end
+
+local function ReleaseBlur()
+    if Blur.Bound then
+        Blur.Bound = false
+        pcall(function()
+            RunService:UnbindFromRenderStep(Blur.BindName)
+        end)
+    end
+
+    for _, Region in Blur.Regions do
+        Region.Part.Parent = nil
+    end
+    ApplyBlurEffect(false)
+end
+
+-- Runs every frame, so an unexpected error must not spam the console: turn the blur off instead
+local function SafeStepBlur()
+    local Success, Error = pcall(StepBlur)
+    if not Success then
+        warn("[Library] Blur failed and was disabled: " .. tostring(Error))
+        Library:SetBlurEnabled(false)
+    end
+end
+
+-- Kind picks which transparency the region follows: "Background" (main window), "Groupbox" or "Element"
+-- (floating panels such as the keybind list / watermark). Blur is skipped while that transparency is 0.
+function Library:RegisterBlur(Object: GuiObject, Kind: string?)
+    Kind = Kind or "Background"
+    assert(BlurTransparencyKeys[Kind], "Blur kind needs to be 'Background', 'Groupbox' or 'Element'.")
+
+    local Region = Blur.Regions[Object]
+    if Region then
+        Region.Kind = Kind
+        return Object
+    end
+
+    local Part, Mesh = CreateBlurPart()
+    Blur.Regions[Object] = { Kind = Kind, Part = Part, Mesh = Mesh }
+
+    Object.Destroying:Connect(function()
+        Library:UnregisterBlur(Object)
+    end)
+
+    return Object
+end
+
+function Library:UnregisterBlur(Object: GuiObject)
+    local Region = Blur.Regions[Object]
+    if not Region then
+        return
+    end
+
+    Blur.Regions[Object] = nil
+    Region.Part:Destroy()
+end
+
+function Library:UpdateBlur()
+    if Library.Unloaded then
+        return
+    end
+
+    if Library.BlurEnabled then
+        if not Blur.Bound then
+            Blur.Bound = true
+            RunService:BindToRenderStep(Blur.BindName, Enum.RenderPriority.Last.Value, SafeStepBlur)
+        end
+        SafeStepBlur()
+    else
+        ReleaseBlur()
+    end
+end
+
+function Library:SetBlurEnabled(Enabled: boolean)
+    Library.BlurEnabled = Enabled == true
+    Library:UpdateBlur()
+end
+
+-- Amount: 0-100 (clamped). Accepts numeric strings so it can be fed straight from an Input.
+function Library:SetBlurAmount(Amount: number | string)
+    local Value = tonumber(Amount)
+    if not Value then
+        return
+    end
+
+    Library.BlurAmount = math.clamp(Value, 0, 100)
+end
+
+function Library:DestroyBlur()
+    Library.BlurEnabled = false
+    ReleaseBlur()
+
+    for Object, Region in Blur.Regions do
+        Blur.Regions[Object] = nil
+        Region.Part:Destroy()
+    end
+
+    if Blur.Effect then
+        Blur.Effect:Destroy()
+        Blur.Effect = nil
+    end
 end
 
 function Library:SetDPIScale(DPIScale: number)
@@ -3556,6 +3660,7 @@ function Library:AddDraggableLabel(...)
         Parent = Floats,
     })
     Library:RegisterElement(Label)
+    Library:RegisterBlur(Label, "Element")
 
     table.insert(
         Library.Corners,
@@ -3778,6 +3883,7 @@ function Library:AddDraggableMenu(Name: string)
         Parent = Floats,
     })
     Library:RegisterElement(Holder)
+    Library:RegisterBlur(Holder, "Element")
     table.insert(
         Library.Corners,
         New("UICorner", {
@@ -11706,6 +11812,7 @@ function Library:CreateWindow(WindowInfo)
             })
         )
         Library:AddOutline(MainFrame)
+        Library:RegisterBlur(MainFrame, "Background")
         Library:MakeLine(MainFrame, {
             Position = UDim2.fromOffset(0, 48),
             Size = UDim2.new(1, 0, 0, 1),
@@ -14783,8 +14890,6 @@ function Library:CreateWindow(WindowInfo)
             Library.Toggled = not Library.Toggled
         end
 
-        Library:UpdateBlur()
-
         if Library.Animations and Library.Animations.ToggleWindow == true then
             local FadeTime = Library.WindowAnimationInfo.Time
             Fading = true
@@ -15771,7 +15876,7 @@ Library:GiveSignal(Teams.ChildRemoved:Connect(OnTeamChange))
 
 function Library:Unload()
     Library.Unloaded = true
-    Library:UpdateBlur() -- destroys the blur part / effect
+
     --// Disconnect connections
     for Index = #Library.Signals, 1, -1 do
         local Connection = table.remove(Library.Signals, Index)
@@ -15789,6 +15894,9 @@ function Library:Unload()
             Library:SafeCallback(Callback)
         end
     end
+
+    --// Remove blur
+    Library:DestroyBlur()
 
     --// Destroy elements
     for Index = #Library.Tabs, 1, -1 do
