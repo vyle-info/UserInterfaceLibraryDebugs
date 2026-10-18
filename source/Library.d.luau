@@ -1083,15 +1083,17 @@ export type Library = {
     SetElementTransparency: (self: Library, Value: number) -> (),
     SetPanelTransparency: (self: Library, Value: number) -> (),
 
-    -- Background blur: blurs ONLY the area behind the window while it is open, enabled and the
-    -- interface is transparent (any of the three transparency values > 0). Amount is 0 - BlurMaxAmount (100).
+    -- Acrylic-style blur (DepthOfFieldEffect based, ported from 7kayoh/Acrylic). A registered GuiObject only blurs
+    -- the game behind it while blur is enabled, BlurAmount > 0, the GuiObject is visible and the transparency it
+    -- follows (Kind) is above 0. The main window and the floating keybind list / watermark are registered already.
     BlurEnabled: boolean,
-    BlurAmount: number,
-    BlurMaxAmount: number,
-    SetBlur: (self: Library, Enabled: boolean) -> (),
+    BlurAmount: number, -- 0-100
+    SetBlurEnabled: (self: Library, Enabled: boolean) -> (),
     SetBlurAmount: (self: Library, Amount: number | string) -> (),
+    RegisterBlur: (self: Library, Object: GuiObject, Kind: ("Background" | "Groupbox" | "Element")?) -> GuiObject,
+    UnregisterBlur: (self: Library, Object: GuiObject) -> (),
     UpdateBlur: (self: Library) -> (),
-    IsInterfaceTransparent: (self: Library) -> boolean,
+    DestroyBlur: (self: Library) -> (),
     ElementTransparencyValue: number,
 
     -- Elements (buttons, inputs, dropdowns, sliders, toggles, tab buttons, outlines, keybinds,
