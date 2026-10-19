@@ -111,16 +111,6 @@ do
         CustomImageManager.DownloadAsset(AssetName, ForceRedownload)
     end
 
-    local PNGSignature = "\137PNG\r\n\26\n"
-    local function IsValidPNG(Path: string): boolean
-        if not isfile or not readfile or not isfile(Path) then
-            return false
-        end
-
-        local Success, Content = pcall(readfile, Path)
-        return Success and typeof(Content) == "string" and Content:sub(1, 8) == PNGSignature
-    end
-
     function CustomImageManager.GetAsset(AssetName: string)
         if not CustomImageManagerAssets[AssetName] then
             return nil
@@ -133,9 +123,7 @@ do
 
         local AssetID = string.format("rbxassetid://%s", AssetData.RobloxId)
 
-        --// only trust the local file if it is really a PNG (a failed download can leave an error page behind)
-        local CanUseLocal = not (isfile and readfile) or IsValidPNG(AssetData.Path) or not AssetData.Path:lower():find("%.png$")
-        if getcustomasset and CanUseLocal then
+        if getcustomasset then
             local Success, NewID = pcall(getcustomasset, AssetData.Path)
 
             if Success and NewID then
@@ -156,23 +144,13 @@ do
 
         RecursiveCreatePath(AssetData.Path, true)
 
-        local IsPNG = AssetData.Path:lower():find("%.png$") ~= nil
-        if ForceRedownload ~= true and isfile(AssetData.Path) and (not IsPNG or IsValidPNG(AssetData.Path)) then
+        if ForceRedownload ~= true and isfile(AssetData.Path) then
             return true, nil
         end
 
         local success, errorMessage = pcall(function()
-            local Content = game:HttpGet(AssetData.URL)
-            if IsPNG and (typeof(Content) ~= "string" or Content:sub(1, 8) ~= PNGSignature) then
-                error("downloaded file is not a valid PNG: " .. AssetData.URL)
-            end
-
-            writefile(AssetData.Path, Content)
+            writefile(AssetData.Path, game:HttpGet(AssetData.URL))
         end)
-
-        if AssetData.Id and success then
-            AssetData.Id = nil --// let GetAsset resolve the freshly downloaded file
-        end
 
         return success, errorMessage
     end
@@ -5546,8 +5524,7 @@ do
     end
 
     local HueSequenceTable = {}
-    for Step = 0, 10 do
-        local Hue = Step / 10 --// integer steps avoid float drift so the last keypoint is exactly 1
+    for Hue = 0, 1, 0.1 do
         table.insert(HueSequenceTable, ColorSequenceKeypoint.new(Hue, Color3.fromHSV(Hue, 1, 1)))
     end
     function Funcs:AddColorPicker(Idx, Info)
@@ -5564,7 +5541,7 @@ do
 
             Value = Info.Default,
 
-            Transparency = typeof(Info.Transparency) == "number" and math.clamp(Info.Transparency, 0, 1) or 0,
+            Transparency = Info.Transparency or 0,
             Title = Info.Title,
 
             Callback = Info.Callback,
@@ -5572,7 +5549,6 @@ do
 
             Type = "ColorPicker",
         }
-        local HasTransparency = Info.Transparency ~= nil and Info.Transparency ~= false
         ColorPicker.Hue, ColorPicker.Sat, ColorPicker.Vib = ColorPicker.Value:ToHSV()
 
         local Holder = New("TextButton", {
@@ -5617,7 +5593,7 @@ do
         local MapSize = Library.IsMobile and 140 or 200
         local BarWidth = 16
         local MenuWidth = MapSize + BarWidth + 6 + 12
-        if HasTransparency then
+        if Info.Transparency then
             MenuWidth += BarWidth + 6
         end
 
@@ -5757,39 +5733,9 @@ do
         --// Sat Map
         local SatVipMap = New("ImageButton", {
             BackgroundColor3 = ColorPicker.Value,
+            Image = CustomImageManager.GetAsset("SaturationMap"),
             Size = UDim2.fromOffset(MapSize, MapSize),
             Parent = ColorHolder,
-        })
-
-        --// Built from gradients instead of an image so it still renders when the asset fails to load
-        local SatOverlay = New("Frame", {
-            BackgroundColor3 = Color3.new(1, 1, 1),
-            BorderSizePixel = 0,
-            Size = UDim2.fromScale(1, 1),
-            Parent = SatVipMap,
-        })
-        New("UIGradient", {
-            Rotation = 0,
-            Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 0),
-                NumberSequenceKeypoint.new(1, 1),
-            }),
-            Parent = SatOverlay,
-        })
-
-        local VibOverlay = New("Frame", {
-            BackgroundColor3 = Color3.new(0, 0, 0),
-            BorderSizePixel = 0,
-            Size = UDim2.fromScale(1, 1),
-            Parent = SatVipMap,
-        })
-        New("UIGradient", {
-            Rotation = 90,
-            Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 1),
-                NumberSequenceKeypoint.new(1, 0),
-            }),
-            Parent = VibOverlay,
         })
 
         local SatVibCursor = New("Frame", {
@@ -5831,7 +5777,7 @@ do
 
         --// Alpha
         local TransparencySelector, TransparencyColor, TransparencyCursor
-        if HasTransparency then
+        if Info.Transparency then
             TransparencySelector = New("ImageButton", {
                 Image = CustomImageManager.GetAsset("TransparencyTexture"),
                 ScaleType = Enum.ScaleType.Tile,
@@ -5883,7 +5829,7 @@ do
             local function GetContentWidth(MapWidth)
                 local CurrentBarWidth = GetBarWidth(MapWidth)
                 local Width = MapWidth + CurrentBarWidth + BasePadding
-                if HasTransparency then
+                if Info.Transparency then
                     Width += (CurrentBarWidth + BasePadding)
                 end
 
@@ -6235,16 +6181,7 @@ do
 
         --// End \\--
         function ColorPicker:SetHSVFromRGB(Color)
-            local Hue, Sat, Vib = Color:ToHSV()
-
-            --// greys/black have no meaningful hue (or sat); keep the old ones so the cursors don't jump
-            if Sat > 0 and Vib > 0 then
-                ColorPicker.Hue = Hue
-            end
-            if Vib > 0 then
-                ColorPicker.Sat = Sat
-            end
-            ColorPicker.Vib = Vib
+            ColorPicker.Hue, ColorPicker.Sat, ColorPicker.Vib = Color:ToHSV()
         end
 
         function ColorPicker:Display()
@@ -6328,23 +6265,14 @@ do
                 return
             end
 
-            ColorPicker.Hue = math.clamp(HSV[1], 0, 1)
-            ColorPicker.Sat = math.clamp(HSV[2], 0, 1)
-            ColorPicker.Vib = math.clamp(HSV[3], 0, 1)
-            if HasTransparency and typeof(Transparency) == "number" then
-                ColorPicker.Transparency = math.clamp(Transparency, 0, 1)
-            end
+            local Color = Color3.fromHSV(HSV[1], HSV[2], HSV[3])
+            ColorPicker.Transparency = Info.Transparency and Transparency or 0
+            ColorPicker:SetHSVFromRGB(Color)
             ColorPicker:Update()
         end
 
         function ColorPicker:SetValueRGB(Color, Transparency)
-            if typeof(Color) ~= "Color3" then
-                return
-            end
-
-            if HasTransparency and typeof(Transparency) == "number" then
-                ColorPicker.Transparency = math.clamp(Transparency, 0, 1)
-            end
+            ColorPicker.Transparency = Info.Transparency and Transparency or 0
             ColorPicker:SetHSVFromRGB(Color)
             ColorPicker:Update()
         end
@@ -6377,8 +6305,8 @@ do
 
                 local OldSat = ColorPicker.Sat
                 local OldVib = ColorPicker.Vib
-                ColorPicker.Sat = (LocationX - MinX) / math.max(MaxX - MinX, 1)
-                ColorPicker.Vib = 1 - ((LocationY - MinY) / math.max(MaxY - MinY, 1))
+                ColorPicker.Sat = (LocationX - MinX) / (MaxX - MinX)
+                ColorPicker.Vib = 1 - ((LocationY - MinY) / (MaxY - MinY))
 
                 if ColorPicker.Sat ~= OldSat or ColorPicker.Vib ~= OldVib then
                     ColorPicker:Update()
@@ -6395,7 +6323,7 @@ do
                 local Location = math.clamp(Mouse.Y, Min, Max)
 
                 local OldHue = ColorPicker.Hue
-                ColorPicker.Hue = (Location - Min) / math.max(Max - Min, 1)
+                ColorPicker.Hue = (Location - Min) / (Max - Min)
 
                 if ColorPicker.Hue ~= OldHue then
                     ColorPicker:Update()
@@ -6413,7 +6341,7 @@ do
                     local Location = math.clamp(Mouse.Y, Min, Max)
 
                     local OldTransparency = ColorPicker.Transparency
-                    ColorPicker.Transparency = (Location - Min) / math.max(Max - Min, 1)
+                    ColorPicker.Transparency = (Location - Min) / (Max - Min)
 
                     if ColorPicker.Transparency ~= OldTransparency then
                         ColorPicker:Update()
@@ -6424,46 +6352,30 @@ do
             end))
         end
 
-        table.insert(ColorPicker.Connections, HueBox.FocusLost:Connect(function()
-            local Text = HueBox.Text:gsub("%s", ""):gsub("^#", "")
-            if #Text == 3 then
-                Text = Text:gsub(".", "%0%0") --// expand shorthand hex (#abc -> #aabbcc)
+        table.insert(ColorPicker.Connections, HueBox.FocusLost:Connect(function(Enter)
+            if not Enter then
+                return
             end
 
-            local Success, Color = false, nil
-            if #Text == 6 and not Text:find("%X") then
-                Success, Color = pcall(Color3.fromHex, Text)
-            end
-
+            local Success, Color = pcall(Color3.fromHex, HueBox.Text)
             if Success and typeof(Color) == "Color3" then
-                if Color:ToHex() ~= ColorPicker.Value:ToHex() then --// compare as 8-bit so an untouched box doesn't nudge the color
-                    ColorPicker:SetHSVFromRGB(Color)
-                    ColorPicker:Update()
-                    return
-                end
+                ColorPicker.Hue, ColorPicker.Sat, ColorPicker.Vib = Color:ToHSV()
             end
 
-            ColorPicker:Display() --// invalid or unchanged input: restore the text without firing callbacks
+            ColorPicker:Update()
         end))
 
-        table.insert(ColorPicker.Connections, RgbBox.FocusLost:Connect(function()
-            local R, G, B = RgbBox.Text:match("^%s*(%-?%d+)[%s,]+(%-?%d+)[%s,]+(%-?%d+)%s*$")
-
-            if R and G and B then
-                local Color = Color3.fromRGB(
-                    math.clamp(tonumber(R) :: number, 0, 255),
-                    math.clamp(tonumber(G) :: number, 0, 255),
-                    math.clamp(tonumber(B) :: number, 0, 255)
-                )
-
-                if Color:ToHex() ~= ColorPicker.Value:ToHex() then --// compare as 8-bit so an untouched box doesn't nudge the color
-                    ColorPicker:SetHSVFromRGB(Color)
-                    ColorPicker:Update()
-                    return
-                end
+        table.insert(ColorPicker.Connections, RgbBox.FocusLost:Connect(function(Enter)
+            if not Enter then
+                return
             end
 
-            ColorPicker:Display()
+            local R, G, B = RgbBox.Text:match("(%d+),%s*(%d+),%s*(%d+)")
+            if R and G and B then
+                ColorPicker:SetHSVFromRGB(Color3.fromRGB(R, G, B))
+            end
+
+            ColorPicker:Update()
         end))
 
         for _, BoxPair in {
