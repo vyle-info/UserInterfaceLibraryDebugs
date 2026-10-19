@@ -5767,11 +5767,38 @@ do
         })
 
         --// Sat Map
+        --// Built from UIGradients instead of SaturationMap.png so it renders on every executor \\--
         local SatVipMap = New("ImageButton", {
             BackgroundColor3 = ColorPicker.Value,
-            Image = CustomImageManager.GetAsset("SaturationMap"),
+            BorderSizePixel = 0,
+            Image = "",
+            AutoButtonColor = false,
             Size = UDim2.fromOffset(MapSize, MapSize),
             Parent = ColorHolder,
+        })
+
+        local SatWhiteOverlay = New("Frame", {
+            BackgroundColor3 = Color3.new(1, 1, 1),
+            BorderSizePixel = 0,
+            Size = UDim2.fromScale(1, 1),
+            Parent = SatVipMap,
+        })
+        New("UIGradient", {
+            Rotation = 0, -- left (white) -> right (clear)
+            Transparency = NumberSequence.new(0, 1),
+            Parent = SatWhiteOverlay,
+        })
+
+        local SatBlackOverlay = New("Frame", {
+            BackgroundColor3 = Color3.new(0, 0, 0),
+            BorderSizePixel = 0,
+            Size = UDim2.fromScale(1, 1),
+            Parent = SatVipMap,
+        })
+        New("UIGradient", {
+            Rotation = 90, -- top (clear) -> bottom (black)
+            Transparency = NumberSequence.new(1, 0),
+            Parent = SatBlackOverlay,
         })
 
         local SatVibCursor = New("Frame", {
