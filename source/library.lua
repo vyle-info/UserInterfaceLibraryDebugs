@@ -102,13 +102,34 @@ do
 
         CustomImageManagerAssets[AssetName] = {
             RobloxId = RobloxAssetId,
-            Path = string.format("Obsidian/custom_assets/%s", AssetName),
+            Path = string.format("Marden-assets/custom_assets/%s", AssetName),
             URL = URL,
 
             Id = nil,
         }
 
         CustomImageManager.DownloadAsset(AssetName, ForceRedownload)
+    end
+
+    --// Rejects HTML / "404: Not Found" / empty files that would render as a blank image \\--
+    local function LooksLikeImage(Data: any): boolean
+        if typeof(Data) ~= "string" or #Data < 8 then
+            return false
+        end
+
+        return Data:sub(1, 8) == "\137PNG\r\n\26\n" -- PNG
+            or Data:sub(1, 3) == "\255\216\255" -- JPEG
+            or Data:sub(1, 4) == "GIF8" -- GIF
+            or (Data:sub(1, 4) == "RIFF" and Data:sub(9, 12) == "WEBP") -- WEBP
+    end
+
+    local function HasValidLocalFile(Path: string): boolean
+        if not isfile or not readfile or not isfile(Path) then
+            return false
+        end
+
+        local Success, Data = pcall(readfile, Path)
+        return Success and LooksLikeImage(Data)
     end
 
     function CustomImageManager.GetAsset(AssetName: string)
@@ -121,18 +142,22 @@ do
             return AssetData.Id
         end
 
-        local AssetID = string.format("rbxassetid://%s", AssetData.RobloxId)
-
-        if getcustomasset then
+        --// Prefer the local file, but only if it is actually a valid image \\--
+        if getcustomasset and HasValidLocalFile(AssetData.Path) then
             local Success, NewID = pcall(getcustomasset, AssetData.Path)
 
-            if Success and NewID then
-                AssetID = NewID
+            if Success and typeof(NewID) == "string" and NewID ~= "" then
+                AssetData.Id = NewID
+                return NewID
             end
         end
 
-        AssetData.Id = AssetID
-        return AssetID
+        --// Fallback: hosted Roblox asset (not cached, so a later retry can still use the local file) \\--
+        if AssetData.RobloxId and AssetData.RobloxId ~= 0 then
+            return string.format("rbxassetid://%s", AssetData.RobloxId)
+        end
+
+        return ""
     end
 
     function CustomImageManager.DownloadAsset(AssetName: string, ForceRedownload: boolean?)
@@ -144,15 +169,26 @@ do
 
         RecursiveCreatePath(AssetData.Path, true)
 
-        if ForceRedownload ~= true and isfile(AssetData.Path) then
+        --// Only trust the cache if the file is a real image (a bad file from an old run is re-downloaded) \\--
+        if ForceRedownload ~= true and HasValidLocalFile(AssetData.Path) then
             return true, nil
         end
 
-        local success, errorMessage = pcall(function()
-            writefile(AssetData.Path, game:HttpGet(AssetData.URL))
+        local Success, Result = pcall(function()
+            local Data = game:HttpGet(AssetData.URL)
+            if not LooksLikeImage(Data) then
+                error("response is not an image: " .. tostring(AssetData.URL))
+            end
+
+            writefile(AssetData.Path, Data)
         end)
 
-        return success, errorMessage
+        if not Success then
+            warn(string.format("[UI Library] Failed to download %q: %s", AssetName, tostring(Result)))
+            AssetData.Id = nil
+        end
+
+        return Success, Result
     end
 
     for AssetName, _ in CustomImageManagerAssets do
