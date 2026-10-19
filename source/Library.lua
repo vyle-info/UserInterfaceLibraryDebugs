@@ -3,7 +3,6 @@ local cloneref = (cloneref or clonereference or function(instance: any)
 end)
 local CoreGui: CoreGui = cloneref(game:GetService("CoreGui"))
 local GuiService: GuiService = cloneref(game:GetService("GuiService"))
-local Lighting: Lighting = cloneref(game:GetService("Lighting"))
 local Players: Players = cloneref(game:GetService("Players"))
 local RunService: RunService = cloneref(game:GetService("RunService"))
 local SoundService: SoundService = cloneref(game:GetService("SoundService"))
@@ -1583,308 +1582,6 @@ function Library:SetPanelTransparency(Value)
     Library:SetBackgroundTransparency(Value)
     Library:SetGroupboxTransparency(Value)
     Library:SetElementTransparency(Value)
-end
-
---// Acrylic Blur \\--
--- Ported from https://github.com/7kayoh/Acrylic (MIT, Copyright (c) 2023 7kayoh, originally from
--- richie0866/remote-spy) without the Fusion / script.Parent dependencies. See assets/licenses/Acrylic.LICENSE.
---
--- A DepthOfFieldEffect that only blurs what is NEAR the camera (NearIntensity > 0, FarIntensity = 0) is paired
--- with an almost invisible Glass part sitting right in front of the camera. The part is resized every frame to
--- cover the same screen rectangle as a registered GuiObject, so the game behind that GuiObject is blurred while
--- the UI drawn on top of it stays sharp.
---
--- A region only blurs while ALL of these are true:
---   * Library.BlurEnabled is true and Library.BlurAmount > 0
---   * the GuiObject is actually visible (it and every parent, and its ScreenGui is enabled)
---   * the transparency its panel follows (see RegisterBlur's Kind) is above 0, so fully opaque UI never blurs
-Library.BlurEnabled = false
-Library.BlurAmount = 34 -- 0-100, maps to DepthOfFieldEffect.NearIntensity (0-1)
-
-local BlurDistance = 0.001 -- studs in front of the camera
-local BlurTransparencyKeys = {
-    Background = "BackgroundTransparency",
-    Groupbox = "GroupboxTransparency",
-    Element = "ElementTransparencyValue",
-}
-local Blur = {
-    Regions = {}, -- [GuiObject] = { Kind, Part, Mesh, CFrame, Scale }
-    Effect = nil,
-    DisabledEffects = {}, -- other DepthOfFieldEffects that were switched off while the blur is showing
-    Applied = false,
-    Bound = false,
-    BindName = "LibraryAcrylicBlur",
-}
-
-local function CreateBlurPart()
-    local Part = Instance.new("Part")
-    Part.Name = "UIBlur"
-    Part.Color = Color3.new(0, 0, 0)
-    Part.Material = Enum.Material.Glass
-    Part.Size = Vector3.new(1, 1, 0)
-    Part.Transparency = 0.999
-    Part.Anchored = true
-    Part.CanCollide = false
-    Part.CanQuery = false -- keep it out of the game's raycasts / Mouse.Target
-    Part.CanTouch = false
-    Part.Locked = true
-    Part.CastShadow = false
-
-    local Mesh = Instance.new("SpecialMesh")
-    Mesh.MeshType = Enum.MeshType.Brick
-    Mesh.Offset = Vector3.new(0, 0, -0.000001)
-    Mesh.Parent = Part
-
-    return Part, Mesh
-end
-
--- Returns the ScreenGui the object is shown in, or nil when it (or any parent / the ScreenGui) is hidden
-local function GetVisibleScreenGui(Object: Instance): ScreenGui?
-    local Current: Instance? = Object
-
-    while Current do
-        if Current:IsA("GuiObject") then
-            if not Current.Visible then
-                return nil
-            end
-        elseif Current:IsA("ScreenGui") then
-            return if Current.Enabled then Current else nil
-        end
-
-        Current = Current.Parent
-    end
-
-    return nil
-end
-
--- Other DepthOfFieldEffects would fight with ours, so park them while the blur is showing and put them back after
-local function ApplyBlurEffect(Applied: boolean)
-    if Blur.Applied == Applied then
-        return
-    end
-    Blur.Applied = Applied
-
-    if Applied then
-        if not Blur.Effect then
-            local Effect = Instance.new("DepthOfFieldEffect")
-            Effect.Name = "UIBlur"
-            Effect.FarIntensity = 0
-            Effect.FocusDistance = 0.05
-            Effect.InFocusRadius = 0.1
-            Effect.NearIntensity = 0
-            Blur.Effect = Effect
-        end
-
-        table.clear(Blur.DisabledEffects)
-        for _, Container in { Lighting, workspace.CurrentCamera } do
-            for _, Child in Container:GetChildren() do
-                if Child:IsA("DepthOfFieldEffect") and Child ~= Blur.Effect and Child.Enabled then
-                    Blur.DisabledEffects[Child] = true
-                    Child.Enabled = false
-                end
-            end
-        end
-
-        Blur.Effect.Parent = Lighting
-    else
-        if Blur.Effect then
-            Blur.Effect.Parent = nil
-        end
-
-        for Effect in Blur.DisabledEffects do
-            if Effect.Parent then
-                Effect.Enabled = true
-            end
-        end
-        table.clear(Blur.DisabledEffects)
-    end
-end
-
--- ScreenPointToRay adds the GUI (top bar) inset itself, which matches the AbsolutePosition of a normal ScreenGui.
--- A ScreenGui with IgnoreGuiInset has no inset, so it needs ViewportPointToRay instead.
---
--- The part is a flat quad facing the camera, so every corner has to sit on the SAME plane BlurDistance in front of
--- the camera (not the same distance along its own ray). Otherwise the quad would come out smaller than the UI and
--- off-center for UI that is far from the middle of the screen.
-local function BlurPointToWorld(Camera: Camera, CameraCFrame: CFrame, IgnoreInset: boolean, Point: Vector2): Vector3
-    local Ray = if IgnoreInset
-        then Camera:ViewportPointToRay(Point.X, Point.Y)
-        else Camera:ScreenPointToRay(Point.X, Point.Y)
-
-    local Depth = -Ray.Direction:Dot(CameraCFrame.ZVector) -- how much of the ray points straight ahead of the camera
-    return Ray.Origin + Ray.Direction * (BlurDistance / math.max(Depth, 0.05))
-end
-
-local function StepBlur()
-    if Library.Unloaded then
-        return
-    end
-
-    local Camera = workspace.CurrentCamera
-    local Amount = math.clamp(Library.BlurAmount, 0, 100)
-    local AnyActive = false
-
-    -- The blurred rectangle is shrunk a little so the soft edge of the blur doesn't spill past the border of the UI.
-    -- (8px at a 0px tall viewport up to 56px at 2560px tall, split over both sides; same as Acrylic's getOffset())
-    local BaseInset = if Camera then (8 + Camera.ViewportSize.Y * 48 / 2560) / 2 else 0
-
-    for Object, Region in Blur.Regions do
-        local Part = Region.Part
-        local Gui = nil
-
-        if Camera and Amount > 0 and Library[BlurTransparencyKeys[Region.Kind]] > 0 then
-            Gui = GetVisibleScreenGui(Object)
-        end
-
-        local Size = Object.AbsoluteSize
-        if not Gui or Size.X < 1 or Size.Y < 1 then
-            if Part.Parent then
-                Part.Parent = nil
-            end
-            continue
-        end
-
-        AnyActive = true
-
-        -- small panels (watermark, keybind list) can't give up the full inset
-        local Inset = math.min(BaseInset, math.min(Size.X, Size.Y) * 0.25)
-        local Position = Object.AbsolutePosition
-        local TopLeft = Position + Vector2.new(Inset, Inset)
-        local BottomRight = Position + Size - Vector2.new(Inset, Inset)
-        local TopRight = Vector2.new(BottomRight.X, TopLeft.Y)
-
-        local CameraCFrame = Camera.CFrame
-        local IgnoreInset = Gui.IgnoreGuiInset
-        local TopLeft3D = BlurPointToWorld(Camera, CameraCFrame, IgnoreInset, TopLeft)
-        local TopRight3D = BlurPointToWorld(Camera, CameraCFrame, IgnoreInset, TopRight)
-        local BottomRight3D = BlurPointToWorld(Camera, CameraCFrame, IgnoreInset, BottomRight)
-
-        local NewCFrame = CFrame.fromMatrix(
-            (TopLeft3D + BottomRight3D) / 2,
-            CameraCFrame.XVector,
-            CameraCFrame.YVector,
-            CameraCFrame.ZVector
-        )
-        local NewScale = Vector3.new((TopRight3D - TopLeft3D).Magnitude, (TopRight3D - BottomRight3D).Magnitude, 0)
-
-        if Region.CFrame ~= NewCFrame then
-            Region.CFrame = NewCFrame
-            Part.CFrame = NewCFrame
-        end
-        if Region.Scale ~= NewScale then
-            Region.Scale = NewScale
-            Region.Mesh.Scale = NewScale
-        end
-        if Part.Parent ~= Camera then
-            Part.Parent = Camera -- also re-parents when the game swaps its CurrentCamera
-        end
-    end
-
-    ApplyBlurEffect(AnyActive)
-    if AnyActive then
-        Blur.Effect.NearIntensity = Amount / 100
-    end
-end
-
-local function ReleaseBlur()
-    if Blur.Bound then
-        Blur.Bound = false
-        pcall(function()
-            RunService:UnbindFromRenderStep(Blur.BindName)
-        end)
-    end
-
-    for _, Region in Blur.Regions do
-        Region.Part.Parent = nil
-    end
-    ApplyBlurEffect(false)
-end
-
--- Runs every frame, so an unexpected error must not spam the console: turn the blur off instead
-local function SafeStepBlur()
-    local Success, Error = pcall(StepBlur)
-    if not Success then
-        warn("[Library] Blur failed and was disabled: " .. tostring(Error))
-        Library:SetBlurEnabled(false)
-    end
-end
-
--- Kind picks which transparency the region follows: "Background" (main window), "Groupbox" or "Element"
--- (floating panels such as the keybind list / watermark). Blur is skipped while that transparency is 0.
-function Library:RegisterBlur(Object: GuiObject, Kind: string?)
-    Kind = Kind or "Background"
-    assert(BlurTransparencyKeys[Kind], "Blur kind needs to be 'Background', 'Groupbox' or 'Element'.")
-
-    local Region = Blur.Regions[Object]
-    if Region then
-        Region.Kind = Kind
-        return Object
-    end
-
-    local Part, Mesh = CreateBlurPart()
-    Blur.Regions[Object] = { Kind = Kind, Part = Part, Mesh = Mesh }
-
-    Object.Destroying:Connect(function()
-        Library:UnregisterBlur(Object)
-    end)
-
-    return Object
-end
-
-function Library:UnregisterBlur(Object: GuiObject)
-    local Region = Blur.Regions[Object]
-    if not Region then
-        return
-    end
-
-    Blur.Regions[Object] = nil
-    Region.Part:Destroy()
-end
-
-function Library:UpdateBlur()
-    if Library.Unloaded then
-        return
-    end
-
-    if Library.BlurEnabled then
-        if not Blur.Bound then
-            Blur.Bound = true
-            RunService:BindToRenderStep(Blur.BindName, Enum.RenderPriority.Last.Value, SafeStepBlur)
-        end
-        SafeStepBlur()
-    else
-        ReleaseBlur()
-    end
-end
-
-function Library:SetBlurEnabled(Enabled: boolean)
-    Library.BlurEnabled = Enabled == true
-    Library:UpdateBlur()
-end
-
--- Amount: 0-100 (clamped). Accepts numeric strings so it can be fed straight from an Input.
-function Library:SetBlurAmount(Amount: number | string)
-    local Value = tonumber(Amount)
-    if not Value then
-        return
-    end
-
-    Library.BlurAmount = math.clamp(Value, 0, 100)
-end
-
-function Library:DestroyBlur()
-    Library.BlurEnabled = false
-    ReleaseBlur()
-
-    for Object, Region in Blur.Regions do
-        Blur.Regions[Object] = nil
-        Region.Part:Destroy()
-    end
-
-    if Blur.Effect then
-        Blur.Effect:Destroy()
-        Blur.Effect = nil
-    end
 end
 
 function Library:SetDPIScale(DPIScale: number)
@@ -3660,7 +3357,6 @@ function Library:AddDraggableLabel(...)
         Parent = Floats,
     })
     Library:RegisterElement(Label)
-    Library:RegisterBlur(Label, "Element")
 
     table.insert(
         Library.Corners,
@@ -3883,7 +3579,6 @@ function Library:AddDraggableMenu(Name: string)
         Parent = Floats,
     })
     Library:RegisterElement(Holder)
-    Library:RegisterBlur(Holder, "Element")
     table.insert(
         Library.Corners,
         New("UICorner", {
@@ -5829,7 +5524,8 @@ do
     end
 
     local HueSequenceTable = {}
-    for Hue = 0, 1, 0.1 do
+    for Step = 0, 10 do
+        local Hue = Step / 10 --// integer steps avoid float drift so the last keypoint is exactly 1
         table.insert(HueSequenceTable, ColorSequenceKeypoint.new(Hue, Color3.fromHSV(Hue, 1, 1)))
     end
     function Funcs:AddColorPicker(Idx, Info)
@@ -5846,7 +5542,7 @@ do
 
             Value = Info.Default,
 
-            Transparency = Info.Transparency or 0,
+            Transparency = typeof(Info.Transparency) == "number" and math.clamp(Info.Transparency, 0, 1) or 0,
             Title = Info.Title,
 
             Callback = Info.Callback,
@@ -5854,6 +5550,7 @@ do
 
             Type = "ColorPicker",
         }
+        local HasTransparency = Info.Transparency ~= nil and Info.Transparency ~= false
         ColorPicker.Hue, ColorPicker.Sat, ColorPicker.Vib = ColorPicker.Value:ToHSV()
 
         local Holder = New("TextButton", {
@@ -5898,7 +5595,7 @@ do
         local MapSize = Library.IsMobile and 140 or 200
         local BarWidth = 16
         local MenuWidth = MapSize + BarWidth + 6 + 12
-        if Info.Transparency then
+        if HasTransparency then
             MenuWidth += BarWidth + 6
         end
 
@@ -6082,7 +5779,7 @@ do
 
         --// Alpha
         local TransparencySelector, TransparencyColor, TransparencyCursor
-        if Info.Transparency then
+        if HasTransparency then
             TransparencySelector = New("ImageButton", {
                 Image = CustomImageManager.GetAsset("TransparencyTexture"),
                 ScaleType = Enum.ScaleType.Tile,
@@ -6134,7 +5831,7 @@ do
             local function GetContentWidth(MapWidth)
                 local CurrentBarWidth = GetBarWidth(MapWidth)
                 local Width = MapWidth + CurrentBarWidth + BasePadding
-                if Info.Transparency then
+                if HasTransparency then
                     Width += (CurrentBarWidth + BasePadding)
                 end
 
@@ -6486,7 +6183,16 @@ do
 
         --// End \\--
         function ColorPicker:SetHSVFromRGB(Color)
-            ColorPicker.Hue, ColorPicker.Sat, ColorPicker.Vib = Color:ToHSV()
+            local Hue, Sat, Vib = Color:ToHSV()
+
+            --// greys/black have no meaningful hue (or sat); keep the old ones so the cursors don't jump
+            if Sat > 0 and Vib > 0 then
+                ColorPicker.Hue = Hue
+            end
+            if Vib > 0 then
+                ColorPicker.Sat = Sat
+            end
+            ColorPicker.Vib = Vib
         end
 
         function ColorPicker:Display()
@@ -6570,14 +6276,23 @@ do
                 return
             end
 
-            local Color = Color3.fromHSV(HSV[1], HSV[2], HSV[3])
-            ColorPicker.Transparency = Info.Transparency and Transparency or 0
-            ColorPicker:SetHSVFromRGB(Color)
+            ColorPicker.Hue = math.clamp(HSV[1], 0, 1)
+            ColorPicker.Sat = math.clamp(HSV[2], 0, 1)
+            ColorPicker.Vib = math.clamp(HSV[3], 0, 1)
+            if HasTransparency and typeof(Transparency) == "number" then
+                ColorPicker.Transparency = math.clamp(Transparency, 0, 1)
+            end
             ColorPicker:Update()
         end
 
         function ColorPicker:SetValueRGB(Color, Transparency)
-            ColorPicker.Transparency = Info.Transparency and Transparency or 0
+            if typeof(Color) ~= "Color3" then
+                return
+            end
+
+            if HasTransparency and typeof(Transparency) == "number" then
+                ColorPicker.Transparency = math.clamp(Transparency, 0, 1)
+            end
             ColorPicker:SetHSVFromRGB(Color)
             ColorPicker:Update()
         end
@@ -6610,8 +6325,8 @@ do
 
                 local OldSat = ColorPicker.Sat
                 local OldVib = ColorPicker.Vib
-                ColorPicker.Sat = (LocationX - MinX) / (MaxX - MinX)
-                ColorPicker.Vib = 1 - ((LocationY - MinY) / (MaxY - MinY))
+                ColorPicker.Sat = (LocationX - MinX) / math.max(MaxX - MinX, 1)
+                ColorPicker.Vib = 1 - ((LocationY - MinY) / math.max(MaxY - MinY, 1))
 
                 if ColorPicker.Sat ~= OldSat or ColorPicker.Vib ~= OldVib then
                     ColorPicker:Update()
@@ -6628,7 +6343,7 @@ do
                 local Location = math.clamp(Mouse.Y, Min, Max)
 
                 local OldHue = ColorPicker.Hue
-                ColorPicker.Hue = (Location - Min) / (Max - Min)
+                ColorPicker.Hue = (Location - Min) / math.max(Max - Min, 1)
 
                 if ColorPicker.Hue ~= OldHue then
                     ColorPicker:Update()
@@ -6646,7 +6361,7 @@ do
                     local Location = math.clamp(Mouse.Y, Min, Max)
 
                     local OldTransparency = ColorPicker.Transparency
-                    ColorPicker.Transparency = (Location - Min) / (Max - Min)
+                    ColorPicker.Transparency = (Location - Min) / math.max(Max - Min, 1)
 
                     if ColorPicker.Transparency ~= OldTransparency then
                         ColorPicker:Update()
@@ -6657,30 +6372,46 @@ do
             end))
         end
 
-        table.insert(ColorPicker.Connections, HueBox.FocusLost:Connect(function(Enter)
-            if not Enter then
-                return
+        table.insert(ColorPicker.Connections, HueBox.FocusLost:Connect(function()
+            local Text = HueBox.Text:gsub("%s", ""):gsub("^#", "")
+            if #Text == 3 then
+                Text = Text:gsub(".", "%0%0") --// expand shorthand hex (#abc -> #aabbcc)
             end
 
-            local Success, Color = pcall(Color3.fromHex, HueBox.Text)
+            local Success, Color = false, nil
+            if #Text == 6 and not Text:find("%X") then
+                Success, Color = pcall(Color3.fromHex, Text)
+            end
+
             if Success and typeof(Color) == "Color3" then
-                ColorPicker.Hue, ColorPicker.Sat, ColorPicker.Vib = Color:ToHSV()
+                if Color:ToHex() ~= ColorPicker.Value:ToHex() then --// compare as 8-bit so an untouched box doesn't nudge the color
+                    ColorPicker:SetHSVFromRGB(Color)
+                    ColorPicker:Update()
+                    return
+                end
             end
 
-            ColorPicker:Update()
+            ColorPicker:Display() --// invalid or unchanged input: restore the text without firing callbacks
         end))
 
-        table.insert(ColorPicker.Connections, RgbBox.FocusLost:Connect(function(Enter)
-            if not Enter then
-                return
-            end
+        table.insert(ColorPicker.Connections, RgbBox.FocusLost:Connect(function()
+            local R, G, B = RgbBox.Text:match("^%s*(%-?%d+)[%s,]+(%-?%d+)[%s,]+(%-?%d+)%s*$")
 
-            local R, G, B = RgbBox.Text:match("(%d+),%s*(%d+),%s*(%d+)")
             if R and G and B then
-                ColorPicker:SetHSVFromRGB(Color3.fromRGB(R, G, B))
+                local Color = Color3.fromRGB(
+                    math.clamp(tonumber(R) :: number, 0, 255),
+                    math.clamp(tonumber(G) :: number, 0, 255),
+                    math.clamp(tonumber(B) :: number, 0, 255)
+                )
+
+                if Color:ToHex() ~= ColorPicker.Value:ToHex() then --// compare as 8-bit so an untouched box doesn't nudge the color
+                    ColorPicker:SetHSVFromRGB(Color)
+                    ColorPicker:Update()
+                    return
+                end
             end
 
-            ColorPicker:Update()
+            ColorPicker:Display()
         end))
 
         for _, BoxPair in {
@@ -11812,7 +11543,6 @@ function Library:CreateWindow(WindowInfo)
             })
         )
         Library:AddOutline(MainFrame)
-        Library:RegisterBlur(MainFrame, "Background")
         Library:MakeLine(MainFrame, {
             Position = UDim2.fromOffset(0, 48),
             Size = UDim2.new(1, 0, 0, 1),
@@ -15894,9 +15624,6 @@ function Library:Unload()
             Library:SafeCallback(Callback)
         end
     end
-
-    --// Remove blur
-    Library:DestroyBlur()
 
     --// Destroy elements
     for Index = #Library.Tabs, 1, -1 do
