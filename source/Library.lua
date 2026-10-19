@@ -111,6 +111,16 @@ do
         CustomImageManager.DownloadAsset(AssetName, ForceRedownload)
     end
 
+    local PNGSignature = "\137PNG\r\n\26\n"
+    local function IsValidPNG(Path: string): boolean
+        if not isfile or not readfile or not isfile(Path) then
+            return false
+        end
+
+        local Success, Content = pcall(readfile, Path)
+        return Success and typeof(Content) == "string" and Content:sub(1, 8) == PNGSignature
+    end
+
     function CustomImageManager.GetAsset(AssetName: string)
         if not CustomImageManagerAssets[AssetName] then
             return nil
@@ -123,7 +133,9 @@ do
 
         local AssetID = string.format("rbxassetid://%s", AssetData.RobloxId)
 
-        if getcustomasset then
+        --// only trust the local file if it is really a PNG (a failed download can leave an error page behind)
+        local CanUseLocal = not (isfile and readfile) or IsValidPNG(AssetData.Path) or not AssetData.Path:lower():find("%.png$")
+        if getcustomasset and CanUseLocal then
             local Success, NewID = pcall(getcustomasset, AssetData.Path)
 
             if Success and NewID then
@@ -144,13 +156,23 @@ do
 
         RecursiveCreatePath(AssetData.Path, true)
 
-        if ForceRedownload ~= true and isfile(AssetData.Path) then
+        local IsPNG = AssetData.Path:lower():find("%.png$") ~= nil
+        if ForceRedownload ~= true and isfile(AssetData.Path) and (not IsPNG or IsValidPNG(AssetData.Path)) then
             return true, nil
         end
 
         local success, errorMessage = pcall(function()
-            writefile(AssetData.Path, game:HttpGet(AssetData.URL))
+            local Content = game:HttpGet(AssetData.URL)
+            if IsPNG and (typeof(Content) ~= "string" or Content:sub(1, 8) ~= PNGSignature) then
+                error("downloaded file is not a valid PNG: " .. AssetData.URL)
+            end
+
+            writefile(AssetData.Path, Content)
         end)
+
+        if AssetData.Id and success then
+            AssetData.Id = nil --// let GetAsset resolve the freshly downloaded file
+        end
 
         return success, errorMessage
     end
@@ -5735,9 +5757,39 @@ do
         --// Sat Map
         local SatVipMap = New("ImageButton", {
             BackgroundColor3 = ColorPicker.Value,
-            Image = CustomImageManager.GetAsset("SaturationMap"),
             Size = UDim2.fromOffset(MapSize, MapSize),
             Parent = ColorHolder,
+        })
+
+        --// Built from gradients instead of an image so it still renders when the asset fails to load
+        local SatOverlay = New("Frame", {
+            BackgroundColor3 = Color3.new(1, 1, 1),
+            BorderSizePixel = 0,
+            Size = UDim2.fromScale(1, 1),
+            Parent = SatVipMap,
+        })
+        New("UIGradient", {
+            Rotation = 0,
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 0),
+                NumberSequenceKeypoint.new(1, 1),
+            }),
+            Parent = SatOverlay,
+        })
+
+        local VibOverlay = New("Frame", {
+            BackgroundColor3 = Color3.new(0, 0, 0),
+            BorderSizePixel = 0,
+            Size = UDim2.fromScale(1, 1),
+            Parent = SatVipMap,
+        })
+        New("UIGradient", {
+            Rotation = 90,
+            Transparency = NumberSequence.new({
+                NumberSequenceKeypoint.new(0, 1),
+                NumberSequenceKeypoint.new(1, 0),
+            }),
+            Parent = VibOverlay,
         })
 
         local SatVibCursor = New("Frame", {
