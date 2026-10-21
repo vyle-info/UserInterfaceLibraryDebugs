@@ -1765,13 +1765,13 @@ end
 
 function Library:AddBlurRegion(Target: GuiObject, Info: { Distance: number?, Offset: (number | () -> number)? }?)
     Info = Info or {}
-    local Distance = Info.Distance or 0.001
+    local Distance = Info.Distance or 1
 
     local Glass = Instance.new("Part")
     Glass.Name = "AcrylicBody"
     Glass.Color = Color3.new(0, 0, 0)
     Glass.Material = Enum.Material.Glass
-    Glass.Size = Vector3.new(1, 1, 0)
+    Glass.Size = Vector3.new(1, 1, 0.01)
     Glass.Anchored = true
     Glass.CanCollide = false
     Glass.CanQuery = false
@@ -1819,7 +1819,7 @@ function Library:AddBlurRegion(Target: GuiObject, Info: { Distance: number?, Off
         local CF = Camera.CFrame
 
         Glass.CFrame = CFrame.fromMatrix((TopLeft3D + BottomRight3D) / 2, CF.XVector, CF.YVector, CF.ZVector)
-        Mesh.Scale = Vector3.new(Width, Height, 0)
+        Mesh.Scale = Vector3.new(Width, Height, 0.01)
     end
 
     local function Update()
