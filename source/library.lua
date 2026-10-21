@@ -1638,7 +1638,7 @@ local Acrylic = {
     -- DepthOfField shows almost no blur below roughly this NearIntensity, so the 1 - 100 range is
     -- stretched over MinIntensity - 1 instead of 0 - 1. That way every step of the slider is visible.
     -- Raise it if low values still look unblurred, lower it if 1 already looks too strong.
-    MinIntensity = 0.36,
+    MinIntensity = 0.75,
     Regions = {},
 }
 Library.Acrylic = Acrylic
@@ -1793,7 +1793,8 @@ function Library:AddBlurRegion(Target: GuiObject, Info: { Distance: number?, Off
     Glass.CanQuery = false -- don't intercept game raycasts
     Glass.CanTouch = false
     Glass.CastShadow = false
-    Glass.Transparency = 0.999
+    Glass.Transparency = 0.9999
+    Glass.Reflectance = 0
     pcall(function()
         Glass.Locked = true
     end)
