@@ -1,0 +1,848 @@
+--[════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════]--
+
+--[[
+
+ ███████████     ███████████         ███████             █████    ██████████      █████████     ███████████       ██████   ██████      █████████      ███████████      ██████████      ██████████    ██████   █████
+░░███░░░░░███   ░░███░░░░░███      ███░░░░░███          ░░███    ░░███░░░░░█     ███░░░░░███   ░█░░░███░░░█      ░░██████ ██████      ███░░░░░███    ░░███░░░░░███    ░░███░░░░███    ░░███░░░░░█   ░░██████ ░░███ 
+ ░███    ░███    ░███    ░███     ███     ░░███          ░███     ░███  █ ░     ███     ░░░    ░   ░███  ░        ░███░█████░███     ░███    ░███     ░███    ░███     ░███   ░░███    ░███  █ ░     ░███░███ ░███ 
+ ░██████████     ░██████████     ░███      ░███          ░███     ░██████      ░███                ░███           ░███░░███ ░███     ░███████████     ░██████████      ░███    ░███    ░██████       ░███░░███░███ 
+ ░███░░░░░░      ░███░░░░░███    ░███      ░███          ░███     ░███░░█      ░███                ░███           ░███ ░░░  ░███     ░███░░░░░███     ░███░░░░░███     ░███    ░███    ░███░░█       ░███ ░░██████ 
+ ░███            ░███    ░███    ░░███     ███     ███   ░███     ░███ ░   █   ░░███     ███       ░███           ░███      ░███     ░███    ░███     ░███    ░███     ░███    ███     ░███ ░   █    ░███  ░░█████ 
+ █████           █████   █████    ░░░███████░     ░░████████      ██████████    ░░█████████        █████          █████     █████    █████   █████    █████   █████    ██████████      ██████████    █████  ░░█████
+░░░░░           ░░░░░   ░░░░░       ░░░░░░░        ░░░░░░░░      ░░░░░░░░░░      ░░░░░░░░░        ░░░░░          ░░░░░     ░░░░░    ░░░░░   ░░░░░    ░░░░░   ░░░░░    ░░░░░░░░░░      ░░░░░░░░░░    ░░░░░    ░░░░░ 
+
+]]--
+
+--[════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════]--
+
+local executor = (identifyexecutor and identifyexecutor()) or "Unknown"
+
+if string.find(executor, "Xeno") or string.find(executor, "Solara") then
+
+    LocalPlayer:Kick("executor is not supported")
+    return
+end
+
+local repo = "https://raw.githubusercontent.com/vyle-info/UserInterfaceLibrary/via/"
+local Library, ThemeManager, SaveManager = loadstring(game:HttpGet(repo .. "source/library.lua"))(), loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))(), loadstring(game:HttpGet(repo .. "addons/ConfigManager.lua"))()
+
+--[═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════]--
+
+-- M A R D E N  G E N E R A L  I N T E R F A C E
+
+--[═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════]--
+
+local Window = Library:CreateWindow({
+	Title = "M A R D E N  v1.4.8",
+    Footer = "J A C K  V Y L E",
+	Icon = nil,
+    GlobalSearch = true,
+    Compact = false,
+    EnableSidebarResize = false,
+    UnlockMouseWhileOpen = false,
+    CornerRadius = 18,
+	NotifySide = "Right",
+	ShowCustomCursor = false,
+    Size = UDim2.fromOffset(995, 845)
+})
+
+Window:SetSidebarWidth(240)
+Window:SetAnimations({ ToggleWindow = true, TabSwitch = true, Groupbox = true, Dropdown = true, KeyPicker = true }, 0.22, 26, "bottom")
+
+local Options = Library.Options
+local Toggles = Library.Toggles
+
+local Tabs = {
+    ["Home"] = Window:AddTab("Marden Home Information", "asterisk"),
+    ["Character"] = Window:AddTab("Marden Character", "asterisk"),
+    ["Combat"] = Window:AddTab("Marden Combat", "asterisk"),
+    ["Visuals"] = Window:AddTab("Marden Visuals", "asterisk"),
+    ["Keybinds"] = Window:AddTab("Marden Keybinds", "asterisk"),
+    ["UI Management"] = Window:AddTab("Marden User Interface", "asterisk"),
+}
+
+local HomeTab, CharacterTab, CombatTab, VisualsTab, KeybindsTab = Tabs.Home, Tabs.Character, Tabs.Combat, Tabs.Visuals, Tabs.Keybinds
+local RightTabBox = Tabs["UI Management"]:AddRightTabbox("Keybinds")
+local MenuTab, WatermarkTab = RightTabBox:AddTab("Interface"), RightTabBox:AddTab("Watermark")
+
+--[═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════]--
+
+-- M A R D E N  U T I L I T Y  I N T E R F A C E
+
+--[═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════]--
+
+-- Terms of Service Dialog Interface
+
+local Dialog
+Dialog = Window:AddDialog("DialogueIdx", {
+    Title = "VultureStack Terms & Services Agreement Interface",
+    Description = "VultureStack User Terms & Service Agreement Notice",
+    AutoDismiss = false,
+    OutsideClickDismiss = false,
+    FooterButtons = {
+        Agree = {
+            Title = "Accept",
+            Variant = "Primary",
+            WaitTime = 0,
+            Order = 1,
+            Callback = function()
+                Dialog:Dismiss()
+            end
+        },
+        Decline = {
+            Title = "Decline",
+            Variant = "Destructive",
+            WaitTime = 0,
+            Order = 2,
+            Callback = function()
+                game.Players.LocalPlayer:Kick("Breach of Contract")
+            end
+        }
+    }
+})
+
+Dialog:AddLabel({
+    Text = '<font color="#1285f1">We may use HWID identification & other information to whitelist or blacklist specific users who breach the contract</font>',
+    DoesWrap = true
+})
+
+Dialog:AddLabel({
+    Text = '<font color="#1285f1">By clicking accept it would automatically send your HWID to a webhook which will be stored in a secure database.</font>',
+    DoesWrap = true
+})
+
+--[═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════]--
+
+-- M A R D E N  M A I N  M O D U L E S
+
+--[═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════]--
+
+getgenv().Library = Library
+getgenv().Options = Library.Options
+getgenv().Toggles = Library.Toggles
+
+getgenv().CharacterTab = CharacterTab
+loadstring(game:HttpGet(repo .. "source/marden/character/janitor.lua"))()
+loadstring(game:HttpGet(repo .. "source/marden/character/wsjp.lua"))()
+loadstring(game:HttpGet(repo .. "source/marden/character/sbot.lua"))()
+loadstring(game:HttpGet(repo .. "source/marden/character/bhop.lua"))()
+
+getgenv().VisualsTab = VisualsTab
+loadstring(game:HttpGet(repo .. "source/marden/visuals/janitor.lua"))()
+loadstring(game:HttpGet(repo .. "source/marden/visuals/2Dboxes.lua"))()
+loadstring(game:HttpGet(repo .. "source/marden/visuals/3Dboxes.lua"))()
+loadstring(game:HttpGet(repo .. "source/marden/visuals/highlights.lua"))()
+loadstring(game:HttpGet(repo .. "source/marden/visuals/wireframeboxes.lua"))()
+
+--[═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════]--
+
+-- M A R D E N  U S E R  I N T E R F A C E
+
+--[═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════]--
+
+-- UserInterface Divison #1
+
+ThemeManager:SetLibrary(Library)
+SaveManager:SetLibrary(Library)
+
+ThemeManager:SetDefaultTheme({
+
+ BackgroundColor = Color3.fromRGB(7, 7, 7),
+    MainColor = Color3.fromRGB(7, 7, 7),
+ AccentColor = Color3.fromRGB(161, 52, 172),
+    OutlineColor = Color3.fromRGB(14, 14, 14),
+    FontColor = Color3.fromRGB(235, 235, 235),
+ FontFace = Enum.Font.Jura,
+
+})
+
+Library:SetFont(Enum.Font.Jura)
+
+Library:SetDPIScale(99)
+
+ThemeManager:SetFolder("Marden-Themes")
+
+SaveManager:SetFolder("Marden-Configs")
+
+SaveManager:SetIgnoreIndexes({ "MenuKeybind", "WatermarkToggleKeybind" })
+
+SaveManager:BuildConfigSection(Tabs["UI Management"])
+
+ThemeManager:ApplyToTab(Tabs["UI Management"])
+
+-- Watermark & UserInterface Divison #2
+
+local RunService = game:GetService("RunService")
+local Stats = game:GetService("Stats")
+
+local DraggableLabel = Library:AddDraggableLabel("M A R D E N")
+local WatermarkEnabled = true
+DraggableLabel:SetVisible(true)
+
+local FrameTimer = tick()
+local FrameCounter = 0
+local FPS = 60
+
+RunService.RenderStepped:Connect(function()
+    if not WatermarkEnabled then return end
+    FrameCounter += 1
+    if (tick() - FrameTimer) >= 1 then
+        FPS = FrameCounter
+        FrameTimer = tick()
+        FrameCounter = 0
+    end
+    DraggableLabel:SetText(
+        ("M A R D E N | %s fps | %s ms"):format(
+            math.floor(FPS),
+            math.floor(Stats.Network.ServerStatsItem["Data Ping"]:GetValue())
+        )
+    )
+end)
+
+MenuTab:AddLabel("Interface Keybind"):AddKeyPicker("MenuToggleKeybind", {
+    Default = "F1", NoUI = true, Text = "Toggle Interface"
+})
+task.defer(function()
+    Options.MenuToggleKeybind:OnClick(function() Library:Toggle() end)
+end)
+
+WatermarkTab:AddLabel("Watermark Keybind"):AddKeyPicker("WatermarkToggleKeybind", {
+    Default = "F2", NoUI = true, Text = "Toggle Watermark"
+})
+task.defer(function()
+    Options.WatermarkToggleKeybind:OnClick(function()
+        WatermarkEnabled = not WatermarkEnabled
+        DraggableLabel:SetVisible(WatermarkEnabled)
+    end)
+end)
+
+--Notifications Divison #1
+
+local SoundService = game:GetService("SoundService")
+local Debris = game:GetService("Debris")
+
+-- Notification Sound Selection (MUST BE on top of keybinds / before keybinds)
+
+local DefaultNotificationSound = 4590662766
+local SelectedNotificationSound = DefaultNotificationSound
+
+local UIManagementGroup = Tabs["UI Management"]:AddRightGroupbox("General Interface Settings", "folder-pen")
+
+UIManagementGroup:AddDivider("Notify Interface Settings")
+
+local NotificationSoundsEnabled = true
+UIManagementGroup:AddToggle("DisableNotificationSounds", {
+    Text = "Notification Sounds",
+    Default = false,
+})
+Toggles.DisableNotificationSounds:OnChanged(function(state)
+    NotificationSoundsEnabled = state
+end)
+
+local NotificationsHidden = false
+UIManagementGroup:AddToggle("DisableNotifications", {
+    Text = "Hide Notifications",
+    Default = false,
+})
+Toggles.DisableNotifications:OnChanged(function(state)
+    NotificationsHidden = state
+end)
+
+UIManagementGroup:AddInput("NotificationSoundInput", {
+    Text = "Custom Notification SoundID",
+    Default = "",
+    Numeric = true,
+    Finished = true,
+    ClearTextOnFocus = false,
+    Placeholder = "e.g. 6518811702",
+    Callback = function(value)
+        local id = tostring(value):match("%d+")
+        if id and #id > 0 then
+            SelectedNotificationSound = tonumber(id)
+        else
+            SelectedNotificationSound = DefaultNotificationSound
+        end
+    end,
+})
+
+local function PlayNotificationSound(soundId)
+    local sound = Instance.new("Sound")
+    sound.SoundId = "rbxassetid://" .. tostring(soundId):gsub("rbxassetid://", "")
+    sound.Volume = 1
+    sound.Parent = SoundService
+    sound:Play()
+    Debris:AddItem(sound, 5)
+end
+
+local OriginalNotify = Library.Notify
+Library.Notify = function(self, args, ...)
+    local soundId
+    if type(args) == "table" then
+        soundId = args.SoundId
+    else
+        soundId = select(2, ...)
+    end
+    soundId = soundId or SelectedNotificationSound
+
+    if NotificationsHidden then
+        if NotificationSoundsEnabled and soundId then
+            pcall(PlayNotificationSound, soundId)
+        end
+        return
+    end
+
+    if type(args) == "table" and not NotificationSoundsEnabled then
+        args.SoundId = nil
+    end
+    return OriginalNotify(self, args, ...)
+end
+
+UIManagementGroup:AddDivider("Window Interface Settings")
+
+UIManagementGroup:AddInput("DPIScale", {
+    Text = "UserInterface Scale",
+    Default = "99",
+    Placeholder = "Enter UserInterface scale",
+    Numeric = true,
+    Finished = true,
+    ClearTextOnFocus = false,
+    MaxLength = nil,
+
+    Callback = function(Value)
+        local DPI = tonumber(Value)
+
+        if DPI then
+            Library:SetDPIScale(DPI)
+        end
+    end,
+})
+
+UIManagementGroup:AddSlider("UICornerSlider", {
+	Text = "Corner Radius Value",
+	Default = Library.CornerRadius,
+	Min = 0,
+	Max = 20,
+	Rounding = 1,
+	Callback = function(value)
+		Window:SetCornerRadius(value)
+	end
+})
+
+UIManagementGroup:AddSlider("BackgroundTransparency", {
+    Text = "Background Interface Transparency",
+    Default = tonumber(string.format("%.1f", Library.BackgroundTransparency * 100)),
+    Min = 0,
+    Max = 100,
+    Rounding = 1,
+    Suffix = "",
+    Callback = function(Value)
+        Library:SetBackgroundTransparency(Value / 100)
+    end,
+})
+
+UIManagementGroup:AddSlider("GroupboxTransparency", {
+    Text = "Groupbox Interface Transparency",
+    Default = tonumber(string.format("%.1f", Library.GroupboxTransparency * 100)),
+    Min = 0,
+    Max = 100,
+    Rounding = 1,
+    Suffix = "",
+    Callback = function(Value)
+        Library:SetGroupboxTransparency(Value / 100)
+    end,
+})
+
+UIManagementGroup:AddSlider("ElementTransparency", {
+    Text = "Element Interface Transparency",
+    Default = tonumber(string.format("%.1f", Library.ElementTransparencyValue * 100)),
+    Min = 0,
+    Max = 100,
+    Rounding = 1,
+    Suffix = "",
+    Callback = function(Value)
+        Library:SetElementTransparency(Value / 100)
+    end,
+})
+
+UIManagementGroup:AddDivider("Utility Interface Settings")
+
+UIManagementGroup:AddToggle("CompactSidebar", {
+    Default = Window:IsSidebarCompacted(),
+    Text = "Compacted Sidebar",
+    Callback = function(Value)
+        Window:SetCompact(Value)
+    end,
+})
+
+getgenv().UIManagementTab = Tabs["UI Management"]
+getgenv().UIManagementGroup = UIManagementGroup
+loadstring(game:HttpGet(repo .. "source/marden/interface/acrylic.lua"))()
+
+UIManagementGroup:AddToggle("AnimationsEnabled", {
+    Default = true,
+    Text = "Interface Animations",
+    Callback = function(Value)
+        Window:SetAnimations({
+            ToggleWindow = Value,
+            TabSwitch = Value,
+            Groupbox = Value,
+            Dropdown = Value,
+            KeyPicker = Value,
+        }, 0.22, 26, "bottom")
+    end,
+})
+
+UIManagementGroup:AddToggle("KeybindMenuOpen", {
+	Default = Library.KeybindFrame.Visible,
+	Text = "Keybind Interface",
+	Callback = function(Value)
+		Library.KeybindFrame.Visible = Value
+		local ok, err = pcall(function()
+			Library.KeybindMenu:SetVisibilityControl(Value)
+		end)
+		if not ok then
+		end
+	end,
+})
+
+--[═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════]--
+
+-- M A R D E N  K E Y B I N D I N G S
+
+--[═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════]--
+
+-- Hotkey: Custom Walkspeed
+KeybindsTab:AddLeftGroupbox("Custom Character Walkspeed")
+    :AddLabel("Selected Hotkey:")
+    :AddKeyPicker("WalkSpeedKeybind", {
+        Default = "None",
+        Mode = "Toggle",
+        Text = "Hotkey",
+    })
+task.defer(function()
+    Options.WalkSpeedKeybind:OnClick(function()
+        Toggles.WalkSpeedToggle:SetValue(not Toggles.WalkSpeedToggle.Value)
+        Library:Notify({
+            Title = "Marden Notification UserInterface",
+            Description = (Toggles.WalkSpeedToggle.Value and "Enabled" or "Disabled") .. " Custom Character WalkSpeed",
+            SoundId = SelectedNotificationSound,
+            Time = 8
+        })
+    end)
+end)
+
+-- Hotkey: Custom JumpPower
+KeybindsTab:AddRightGroupbox("Custom Character JumpPower")
+    :AddLabel("Selected Hotkey:")
+    :AddKeyPicker("JumpPowerKeybind", {
+        Default = "None",
+        Mode = "Toggle",
+        Text = "Hotkey",
+    })
+task.defer(function()
+    Options.JumpPowerKeybind:OnClick(function()
+        Toggles.JumpPowerToggle:SetValue(not Toggles.JumpPowerToggle.Value)
+        Library:Notify({
+            Title = "Marden Notification UserInterface",
+            Description = (Toggles.JumpPowerToggle.Value and "Enabled" or "Disabled") .. " Custom Character JumpPower",
+            SoundId = SelectedNotificationSound,
+            Time = 8
+        })
+    end)
+end)
+
+
+
+-- Hotkey: Character Spinbot
+KeybindsTab:AddLeftGroupbox("Character Spinbot")
+    :AddLabel("Selected Hotkey:")
+    :AddKeyPicker("SpinbotKeybind", {
+        Default = "None",
+        Mode = "Toggle",
+        Text = "Hotkey",
+    })
+task.defer(function()
+    Options.SpinbotKeybind:OnClick(function()
+        Toggles.CFrameSpinbot:SetValue(not Toggles.CFrameSpinbot.Value)
+        Library:Notify({
+            Title = "Marden Notification UserInterface",
+            Description = (Toggles.CFrameSpinbot.Value and "Enabled" or "Disabled") .. " CFrame Character SpinBot",
+            SoundId = SelectedNotificationSound,
+            Time = 8
+        })
+    end)
+end)
+
+-- Hotkey: Character BunnyHop
+KeybindsTab:AddRightGroupbox("Character BunnyHop")
+    :AddLabel("Selected Hotkey:")
+    :AddKeyPicker("BunnyHopKeybind", {
+        Default = "None",
+        Mode = "Toggle",
+        Text = "Hotkey",
+    })
+task.defer(function()
+    Options.BunnyHopKeybind:OnClick(function()
+        Toggles.CharacterBunnyHop:SetValue(not Toggles.CharacterBunnyHop.Value)
+        Library:Notify({
+            Title = "Marden Notification UserInterface",
+            Description = (Toggles.CharacterBunnyHop.Value and "Enabled" or "Disabled") .. " Character BunnyHop",
+            SoundId = SelectedNotificationSound,
+            Time = 8
+        })
+    end)
+end)
+
+
+
+-- Hotkey 1: Outline Boxes
+KeybindsTab:AddLeftGroupbox("Visualize Outline Boxes")
+    :AddLabel("Selected Hotkey:")
+    :AddKeyPicker("OutlineBoxesKeybind", {
+         Default = "None",
+        Mode = "Toggle",
+        Text = "Hotkey",
+    })
+task.defer(function()
+    Options.OutlineBoxesKeybind:OnClick(function()
+    Toggles.GlobalBoxVisuals:SetValue(not Toggles.GlobalBoxVisuals.Value)
+        Library:Notify({
+            Title = "Marden Notification UserInterface",
+            Description = (Toggles.GlobalBoxVisuals.Value and "Enabled" or "Disabled") .. " Outline Box Visualization",
+            SoundId = SelectedNotificationSound,
+            Time = 8
+        })
+    end)
+end)
+
+-- Hotkey 2: Fill Boxes
+KeybindsTab:AddRightGroupbox("Visualize Fill Boxes")
+    :AddLabel("Selected Hotkey:")
+    :AddKeyPicker("FillBoxesKeybind", {
+        Default = "None",
+        Mode = "Toggle",
+        Text = "Hotkey",
+    })
+task.defer(function()
+    Options.FillBoxesKeybind:OnClick(function()
+    Toggles.VisualizeFillBoxes:SetValue(not Toggles.VisualizeFillBoxes.Value)
+        Library:Notify({
+            Title = "Marden Notification UserInterface",
+            Description = (Toggles.VisualizeFillBoxes.Value and "Enabled" or "Disabled") .. " Fill Box Visualization",
+            SoundId = SelectedNotificationSound,
+            Time = 8
+        })
+    end)
+end)
+
+-- Hotkey 3: Teammates
+KeybindsTab:AddLeftGroupbox("Visualize Teammate Boxes")
+    :AddLabel("Selected Hotkey:")
+    :AddKeyPicker("TeammatesBoxesKeybind", {
+        Default = "None",
+        Mode = "Toggle",
+        Text = "Hotkey",
+    })
+task.defer(function()
+    Options.TeammatesBoxesKeybind:OnClick(function()
+    Toggles.VisualizeTeammates:SetValue(not Toggles.VisualizeTeammates.Value)
+        Library:Notify({
+            Title = "Marden Notification UserInterface",
+            Description = (Toggles.VisualizeTeammates.Value and "Enabled" or "Disabled") .. " Teammate Box Visualization",
+            SoundId = SelectedNotificationSound,
+            Time = 8
+        })
+    end)
+end)
+
+-- Hotkey 4: Box Visibility
+KeybindsTab:AddRightGroupbox("Visualize Visibility Boxes")
+    :AddLabel("Selected Hotkey:")
+    :AddKeyPicker("VisibilityBoxesKeybind", {
+        Default = "None",
+        Mode = "Toggle",
+        Text = "Hotkey",
+    })
+task.defer(function()
+    Options.VisibilityBoxesKeybind:OnClick(function()
+    Toggles.DetectBoxVisibility:SetValue(not Toggles.DetectBoxVisibility.Value)
+        Library:Notify({
+            Title = "Notification UserInterface",
+            Description = (Toggles.DetectBoxVisibility.Value and "Enabled" or "Disabled") .. " Box Visibility",
+            SoundId = SelectedNotificationSound,
+            Time = 8
+        })
+    end)
+end)
+
+
+
+-- Hotkey 5: Outline Highlights
+KeybindsTab:AddLeftGroupbox("Visualize Outline Highlights")
+    :AddLabel("Selected Hotkey:")
+    :AddKeyPicker("OutlineHighlightsKeybind", {
+        Default = "None",
+        Mode = "Toggle",
+        Text = "Hotkey",
+    })
+task.defer(function()
+    Options.OutlineHighlightsKeybind:OnClick(function()
+        Toggles.GlobalHighlightVisuals:SetValue(not Toggles.GlobalHighlightVisuals.Value)
+        Library:Notify({
+            Title = "Marden Notification UserInterface",
+            Description = (Toggles.GlobalHighlightVisuals.Value and "Enabled" or "Disabled") .. " Outline Highlight Visualization",
+            SoundId = SelectedNotificationSound,
+            Time = 8
+        })
+    end)
+end)
+
+-- Hotkey 6: Fill Highlights
+KeybindsTab:AddRightGroupbox("Visualize Fill Highlights")
+    :AddLabel("Selected Hotkey:")
+    :AddKeyPicker("FillHighlightsKeybind", {
+        Default = "None",
+        Mode = "Toggle",
+        Text = "Hotkey",
+    })
+task.defer(function()
+    Options.FillHighlightsKeybind:OnClick(function()
+        Toggles.VisualizeHighlightBoxes:SetValue(not Toggles.VisualizeHighlightBoxes.Value)
+        Library:Notify({
+            Title = "Marden Notification UserInterface",
+            Description = (Toggles.VisualizeHighlightBoxes.Value and "Enabled" or "Disabled") .. " Fill Highlight Visualization",
+            SoundId = SelectedNotificationSound,
+            Time = 8
+        })
+    end)
+end)
+
+-- Hotkey 7: Highlight Teammates
+KeybindsTab:AddLeftGroupbox("Visualize Teammate Highlights")
+    :AddLabel("Selected Hotkey:")
+    :AddKeyPicker("TeammatesHighlightsKeybind", {
+        Default = "None",
+        Mode = "Toggle",
+        Text = "Hotkey",
+    })
+task.defer(function()
+    Options.TeammatesHighlightsKeybind:OnClick(function()
+        Toggles.VisualizeHighlightTeammates:SetValue(not Toggles.VisualizeHighlightTeammates.Value)
+        Library:Notify({
+            Title = "Marden Notification UserInterface",
+            Description = (Toggles.VisualizeHighlightTeammates.Value and "Enabled" or "Disabled") .. " Teammate Highlight Visualization",
+            SoundId = SelectedNotificationSound,
+            Time = 8
+        })
+    end)
+end)
+
+-- Hotkey 8: Highlight Visibility
+KeybindsTab:AddRightGroupbox("Visualize Visibility Highlight")
+    :AddLabel("Selected Hotkey:")
+    :AddKeyPicker("VisibilityHighlightsKeybind", {
+        Default = "None",
+        Mode = "Toggle",
+        Text = "Hotkey",
+    })
+task.defer(function()
+    Options.VisibilityHighlightsKeybind:OnClick(function()
+        Toggles.DetectHighlightVisibility:SetValue(not Toggles.DetectHighlightVisibility.Value)
+        Library:Notify({
+            Title = "Notification UserInterface",
+            Description = (Toggles.DetectHighlightVisibility.Value and "Enabled" or "Disabled") .. " Highlight Visibility",
+            SoundId = SelectedNotificationSound,
+            Time = 8
+        })
+    end)
+end)
+
+do
+    local DefaultName = ThemeManager.DefaultThemeName
+    local CustomList = Options.ThemeManager_CustomThemeList
+    if DefaultName and CustomList and ThemeManager:GetCustomTheme(DefaultName) then
+        CustomList:SetValue(DefaultName)
+    end
+end
+
+
+
+-- Hotkey 1: Wireframe Hitboxes
+KeybindsTab:AddLeftGroupbox("Visualize Wireframe Hitboxes")
+    :AddLabel("Selected Hotkey:")
+    :AddKeyPicker("WireframeHitboxKeybind", {
+        Default = "None",
+        Mode = "Toggle",
+        Text = "Hotkey",
+    })
+task.defer(function()
+    Options.WireframeHitboxKeybind:OnClick(function()
+        Toggles.HitboxVisualizerToggle:SetValue(not Toggles.HitboxVisualizerToggle.Value)
+        Library:Notify({
+            Title = "Marden Notification UserInterface",
+            Description = (Toggles.HitboxVisualizerToggle.Value and "Enabled" or "Disabled") .. " Wireframe Hitbox Visualization",
+            SoundId = SelectedNotificationSound,
+            Time = 8
+        })
+    end)
+end)
+
+-- Hotkey 2: Self Wireframe Hitboxes
+KeybindsTab:AddRightGroupbox("Visualize Self Wireframe Hitboxes")
+    :AddLabel("Selected Hotkey:")
+    :AddKeyPicker("SelfWireframeHitboxKeybind", {
+        Default = "None",
+        Mode = "Toggle",
+        Text = "Hotkey",
+    })
+task.defer(function()
+    Options.SelfWireframeHitboxKeybind:OnClick(function()
+        Toggles.SelfHitboxToggle:SetValue(not Toggles.SelfHitboxToggle.Value)
+        Library:Notify({
+            Title = "Marden Notification UserInterface",
+            Description = (Toggles.SelfHitboxToggle.Value and "Enabled" or "Disabled") .. " Self Wireframe Hitbox Visualization",
+            SoundId = SelectedNotificationSound,
+            Time = 8
+        })
+    end)
+end)
+
+-- Hotkey 3: Wireframe Teammates
+KeybindsTab:AddLeftGroupbox("Visualize Teammate Wireframe Hitboxes")
+    :AddLabel("Selected Hotkey:")
+    :AddKeyPicker("TeammatesWireframeKeybind", {
+        Default = "None",
+        Mode = "Toggle",
+        Text = "Hotkey",
+    })
+task.defer(function()
+    Options.TeammatesWireframeKeybind:OnClick(function()
+        Toggles.HitboxTeammatesToggle:SetValue(not Toggles.HitboxTeammatesToggle.Value)
+        Library:Notify({
+            Title = "Marden Notification UserInterface",
+            Description = (Toggles.HitboxTeammatesToggle.Value and "Enabled" or "Disabled") .. " Teammate Wireframe Visualization",
+            SoundId = SelectedNotificationSound,
+            Time = 8
+        })
+    end)
+end)
+
+-- Hotkey 4: Wireframe Hitbox Visibility
+KeybindsTab:AddRightGroupbox("Visualize Wireframe Visibility Hitboxes")
+    :AddLabel("Selected Hotkey:")
+    :AddKeyPicker("VisibilityWireframeKeybind", {
+        Default = "None",
+        Mode = "Toggle",
+        Text = "Hotkey",
+    })
+task.defer(function()
+    Options.VisibilityWireframeKeybind:OnClick(function()
+        Toggles.HitboxVisibilityToggle:SetValue(not Toggles.HitboxVisibilityToggle.Value)
+        Library:Notify({
+            Title = "Marden Notification UserInterface",
+            Description = (Toggles.HitboxVisibilityToggle.Value and "Enabled" or "Disabled") .. " Wireframe Hitbox Visibility",
+            SoundId = SelectedNotificationSound,
+            Time = 8
+        })
+    end)
+end)
+
+
+
+-- Hotkey 1: 3D Boxes
+KeybindsTab:AddLeftGroupbox("Visualize 3D Boxes")
+    :AddLabel("Selected Hotkey:")
+    :AddKeyPicker("Box3DKeybind", {
+        Default = "None",
+        Mode = "Toggle",
+        Text = "Hotkey",
+    })
+task.defer(function()
+    Options.Box3DKeybind:OnClick(function()
+        Toggles.Box3DToggle:SetValue(not Toggles.Box3DToggle.Value)
+        Library:Notify({
+            Title = "Marden Notification UserInterface",
+            Description = (Toggles.Box3DToggle.Value and "Enabled" or "Disabled") .. " 3D Box Visualization",
+            SoundId = SelectedNotificationSound,
+            Time = 8
+        })
+    end)
+end)
+
+-- Hotkey 2: Self 3D Boxes
+KeybindsTab:AddRightGroupbox("Visualize Self 3D Boxes")
+    :AddLabel("Selected Hotkey:")
+    :AddKeyPicker("Box3DSelfKeybind", {
+        Default = "None",
+        Mode = "Toggle",
+        Text = "Hotkey",
+    })
+task.defer(function()
+    Options.Box3DSelfKeybind:OnClick(function()
+        Toggles.Box3DSelfToggle:SetValue(not Toggles.Box3DSelfToggle.Value)
+        Library:Notify({
+            Title = "Marden Notification UserInterface",
+            Description = (Toggles.Box3DSelfToggle.Value and "Enabled" or "Disabled") .. " Self 3D Box Visualization",
+            SoundId = SelectedNotificationSound,
+            Time = 8
+        })
+    end)
+end)
+
+-- Hotkey 3: Teammate 3D Boxes
+KeybindsTab:AddLeftGroupbox("Visualize Teammate 3D Boxes")
+    :AddLabel("Selected Hotkey:")
+    :AddKeyPicker("Box3DTeammatesKeybind", {
+        Default = "None",
+        Mode = "Toggle",
+        Text = "Hotkey",
+    })
+task.defer(function()
+    Options.Box3DTeammatesKeybind:OnClick(function()
+        Toggles.Box3DTeammatesToggle:SetValue(not Toggles.Box3DTeammatesToggle.Value)
+        Library:Notify({
+            Title = "Marden Notification UserInterface",
+            Description = (Toggles.Box3DTeammatesToggle.Value and "Enabled" or "Disabled") .. " Teammate 3D Box Visualization",
+            SoundId = SelectedNotificationSound,
+            Time = 8
+        })
+    end)
+end)
+
+-- Hotkey 4: 3D Box Visibility
+KeybindsTab:AddRightGroupbox("Visualize 3D Box Visibility")
+    :AddLabel("Selected Hotkey:")
+    :AddKeyPicker("Box3DVisibilityKeybind", {
+        Default = "None",
+        Mode = "Toggle",
+        Text = "Hotkey",
+    })
+task.defer(function()
+    Options.Box3DVisibilityKeybind:OnClick(function()
+        Toggles.Box3DVisibilityToggle:SetValue(not Toggles.Box3DVisibilityToggle.Value)
+        Library:Notify({
+            Title = "Marden Notification UserInterface",
+            Description = (Toggles.Box3DVisibilityToggle.Value and "Enabled" or "Disabled") .. " 3D Box Visibility",
+            SoundId = SelectedNotificationSound,
+            Time = 8
+        })
+    end)
+end)
+
+SaveManager:LoadAutoloadConfig()
+
+--[═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════]--
+
+-- M A R D E N  U T I L I Z A T I O N
+
+--[═════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════]--
+
+-- General Utility Loaders
+
+makefolder("ViaMardenInfo")
+
+writefile("ViaMardenInfo/contract", "You hereby have gained temporary access to marden.")
+
+writefile("ViaMardenInfo/whitelist", game:GetService("RbxAnalyticsService"):GetClientId())
+
+writefile("ViaMardenInfo/support", "https://dsc.gg/marden")
