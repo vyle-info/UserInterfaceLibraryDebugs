@@ -1,6 +1,14 @@
+
 local Lighting = game:GetService("Lighting")
 local RunService = game:GetService("RunService")
 local UserGameSettings = UserSettings():GetService("UserGameSettings")
+
+local Library, UIManagementGroup = ...
+
+if not Library or not UIManagementGroup then
+    warn("Acrylic: Library or UIManagementGroup is missing.")
+    return
+end
 
 local BlurController = {
     Enabled = false,
@@ -13,11 +21,11 @@ local BlurController = {
     CreatedBlur = false,
 }
 
-BlurController.RobloxBlur = Lighting:FindFirstChild("UserInterfaceFallbackBlur")
+local ExistingBlur = Lighting:FindFirstChild("UserInterfaceFallbackBlur")
 
-if not BlurController.RobloxBlur then
-    BlurController.CreatedBlur = true
-
+if ExistingBlur and ExistingBlur:IsA("BlurEffect") then
+    BlurController.RobloxBlur = ExistingBlur
+else
     local Blur = Instance.new("BlurEffect")
     Blur.Name = "UserInterfaceFallbackBlur"
     Blur.Size = BlurController.FallbackSize
@@ -25,13 +33,19 @@ if not BlurController.RobloxBlur then
     Blur.Parent = Lighting
 
     BlurController.RobloxBlur = Blur
+    BlurController.CreatedBlur = true
 end
 
 BlurController.RobloxBlur.Enabled = false
-BlurController.RobloxBlur.Size = BlurController.FallbackSize
 
 local function GetGraphicsLevel()
-    local Quality = UserGameSettings.SavedQualityLevel
+    local Success, Quality = pcall(function()
+        return UserGameSettings.SavedQualityLevel
+    end)
+
+    if not Success or not Quality then
+        return nil
+    end
 
     if Quality == Enum.SavedQualitySetting.Automatic then
         return nil
@@ -41,35 +55,51 @@ local function GetGraphicsLevel()
 end
 
 local function UpdateBlur()
-    if BlurController.Unloaded or Library.Unloaded then
+    if BlurController.Unloaded then
+        return
+    end
+
+    if not Library or Library.Unloaded then
         return
     end
 
     local Level = GetGraphicsLevel()
     local UseRobloxBlur =
-        Level == nil or Level < BlurController.GraphicsThreshold
+        Level ~= nil and Level < BlurController.GraphicsThreshold
 
     local UIIsOpen = Library.Toggled == true
     local ShouldBlur = BlurController.Enabled and UIIsOpen
 
-    BlurController.RobloxBlur.Enabled =
-        ShouldBlur and UseRobloxBlur
+    if BlurController.RobloxBlur then
+        BlurController.RobloxBlur.Enabled =
+            ShouldBlur and UseRobloxBlur
+    end
 
-    Library:SetBlurAmount(BlurController.Amount)
-    Library:SetBlurEnabled(
-        ShouldBlur and not UseRobloxBlur
-    )
+    local Success, Error = pcall(function()
+        Library:SetBlurAmount(BlurController.Amount)
+        Library:SetBlurEnabled(
+            ShouldBlur and not UseRobloxBlur
+        )
+    end)
+
+    if not Success and not BlurController.Unloaded then
+        warn("Acrylic UpdateBlur error:", Error)
+    end
 end
 
 UIManagementGroup:AddToggle("BlurToggle", {
     Text = "UserInterface Blur",
     Default = false,
-    Tooltip = "uses standard roblox blur instead of acrylic when graphics is below level 8",
+    Tooltip = "Enables acrylic blur, using standard Roblox blur on low graphics settings.",
 
     Callback = function(Value)
-        BlurController.Enabled = Value
+        if BlurController.Unloaded then
+            return
+        end
+
+        BlurController.Enabled = Value == true
         UpdateBlur()
-    end
+    end,
 })
 
 BlurController.Connection = RunService.RenderStepped:Connect(function()
@@ -81,8 +111,17 @@ Library:GiveSignal(BlurController.Connection)
 UpdateBlur()
 
 Library:OnUnload(function()
+    if BlurController.Unloaded then
+        return
+    end
+
     BlurController.Unloaded = true
     BlurController.Enabled = false
+
+    if BlurController.Connection then
+        BlurController.Connection:Disconnect()
+        BlurController.Connection = nil
+    end
 
     if BlurController.RobloxBlur then
         BlurController.RobloxBlur.Enabled = false
@@ -90,7 +129,13 @@ Library:OnUnload(function()
         if BlurController.CreatedBlur then
             BlurController.RobloxBlur:Destroy()
         end
+
+        BlurController.RobloxBlur = nil
     end
 
-    Library:SetBlurEnabled(false)
+    if Library then
+        pcall(function()
+            Library:SetBlurEnabled(false)
+        end)
+    end
 end)
