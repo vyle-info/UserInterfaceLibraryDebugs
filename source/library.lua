@@ -1635,9 +1635,21 @@ end
 local Acrylic = {
     Enabled = false, -- switched by Library:SetBlurEnabled
     Amount = 34, -- 0 - 100, switched by Library:SetBlurAmount
+    -- DepthOfField shows almost no blur below roughly this NearIntensity, so the 1 - 100 range is
+    -- stretched over MinIntensity - 1 instead of 0 - 1. That way every step of the slider is visible.
+    -- Raise it if low values still look unblurred, lower it if 1 already looks too strong.
+    MinIntensity = 0.36,
     Regions = {},
 }
 Library.Acrylic = Acrylic
+
+local function AmountToIntensity(Amount: number): number
+    if Amount <= 0 then
+        return 0
+    end
+
+    return Acrylic.MinIntensity + (1 - Acrylic.MinIntensity) * (math.clamp(Amount, 0, 100) / 100)
+end
 
 local BlurDepthOfField = {}
 do
@@ -1645,7 +1657,7 @@ do
     Effect.Name = "AcrylicDepthOfField"
     Effect.FarIntensity = 0
     Effect.InFocusRadius = 0.1
-    Effect.NearIntensity = Acrylic.Amount / 100
+    Effect.NearIntensity = AmountToIntensity(Acrylic.Amount)
 
     -- Weak keys: don't keep a game's effects alive just because we suppressed them.
     local Suppressed = setmetatable({}, { __mode = "k" })
@@ -1975,10 +1987,16 @@ function Library:SetBlurAmount(Amount: number | string): number?
 
     Number = math.clamp(Number, 0, 100)
     Acrylic.Amount = Number
-    BlurDepthOfField.SetIntensity(Number / 100)
+    BlurDepthOfField.SetIntensity(AmountToIntensity(Number))
     Library:RefreshBlur()
 
     return Number
+end
+
+-- Changes Acrylic.MinIntensity (0 - 1) and re-applies the current amount
+function Library:SetBlurMinIntensity(Value: number)
+    Acrylic.MinIntensity = math.clamp(tonumber(Value) or Acrylic.MinIntensity, 0, 0.99)
+    BlurDepthOfField.SetIntensity(AmountToIntensity(Acrylic.Amount))
 end
 
 function Library:DestroyBlur()
