@@ -271,7 +271,7 @@ UIManagementGroup:AddInput("NotificationSoundInput", {
 
 local function PlayNotificationSound(soundId)
     local sound = Instance.new("Sound")
-    sound.SoundId = "rbxassetid://" .. tostring(soundId):gsub("rbxassetid://", "")
+    sound.SoundId = "rbxassetid://" .. (tostring(soundId):gsub("rbxassetid://", ""))
     sound.Volume = 1
     sound.Parent = SoundService
     sound:Play()
@@ -279,7 +279,9 @@ local function PlayNotificationSound(soundId)
 end
 
 local OriginalNotify = Library.Notify
-Library.Notify = function(self, args, ...)
+
+-- Core notify logic (hide / sound handling)
+local function ProcessNotify(self, args, ...)
     local soundId
     if type(args) == "table" then
         soundId = args.SoundId
@@ -299,6 +301,54 @@ Library.Notify = function(self, args, ...)
         args.SoundId = nil
     end
     return OriginalNotify(self, args, ...)
+end
+
+-- Auto-batching of "Enabled X" / "Disabled X" notifications
+local BatchWindow = 0.15 -- seconds to wait for more toggles before showing
+local Pending = { Enabled = {}, Disabled = {}, First = nil }
+local FlushScheduled = false
+
+local function FlushBatch(self)
+    FlushScheduled = false
+
+    local enabled, disabled, first = Pending.Enabled, Pending.Disabled, Pending.First
+    Pending = { Enabled = {}, Disabled = {}, First = nil }
+
+    local lines = {}
+    if #enabled > 0 then
+        table.insert(lines, "Enabled " .. table.concat(enabled, ", "))
+    end
+    if #disabled > 0 then
+        table.insert(lines, "Disabled " .. table.concat(disabled, ", "))
+    end
+    if #lines == 0 then return end
+
+    local combined = {}
+    for k, v in pairs(first or {}) do
+        combined[k] = v
+    end
+    combined.Description = table.concat(lines, "\n")
+
+    ProcessNotify(self, combined)
+end
+
+Library.Notify = function(self, args, ...)
+    if type(args) == "table" and type(args.Description) == "string" then
+        local action, name = args.Description:match("^(%a+)%s+(.+)$")
+
+        if (action == "Enabled" or action == "Disabled") and name then
+            Pending.First = Pending.First or args
+            table.insert(Pending[action], name)
+
+            if not FlushScheduled then
+                FlushScheduled = true
+                task.delay(BatchWindow, FlushBatch, self)
+            end
+            return
+        end
+    end
+
+    return ProcessNotify(self, args, ...)
 end
 
 UIManagementGroup:AddDivider("Window Interface Settings")
